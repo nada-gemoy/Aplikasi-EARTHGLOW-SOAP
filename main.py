@@ -1,241 +1,162 @@
-"""
-EarthGlow Soap - Aplikasi Toko Sabun
-Tugas Projek Tahap 1: Navigasi & Event Handling
-Dibuat dengan Python + Kivy
-
-Struktur navigasi (sesuai rancangan Figma):
-Welcome -> Create Account -> Login -> Profile -> Search -> Shop
-  -> Detail Produk -> Cart
-"""
+import tkinter as tk
+from tkinter import filedialog
 
 from kivy.app import App
 from kivy.lang import Builder
-from kivy.uix.screenmanager import ScreenManager, Screen, SlideTransition
-from kivy.properties import NumericProperty, StringProperty
-from kivy.core.window import Window
+from kivy.uix.screenmanager import ScreenManager, Screen
+from kivy.properties import StringProperty
+from kivy.uix.label import Label
 
-# Ukuran window disamakan dengan proporsi HP, disesuaikan agar tidak
-# terpotong di layar laptop (360x640 muat di hampir semua ukuran layar).
-Window.size = (360, 640)
-
-
-# ------------------------------------------------------------------
-# DATA SEMENTARA (nanti bisa diganti database / API)
-# ------------------------------------------------------------------
-PRODUCTS = [
-    {"name": "Cocoberry Soap", "price": 40000, "img": "assets/cocoberry.png"},
-    {"name": "Beauty White Soap", "price": 47000, "img": "assets/beautywhite.png"},
-    {"name": "Sabun Keraton", "price": 60000, "img": "assets/keraton.png"},
-    {"name": "Harmoni Soap", "price": 5000, "img": "assets/harmoni.png"},
-]
+from database import (
+    create_tables,
+    get_products,
+    get_order_count
+)
 
 
-# ------------------------------------------------------------------
-# SCREEN 1: WELCOME
-# ------------------------------------------------------------------
 class WelcomeScreen(Screen):
-    def go_to_create_account(self):
-        """Event handler tombol 'Let's get started'"""
-        self.manager.transition = SlideTransition(direction="left")
-        self.manager.current = "create_account"
+    pass
 
 
-# ------------------------------------------------------------------
-# SCREEN 2: CREATE ACCOUNT
-# ------------------------------------------------------------------
-class CreateAccountScreen(Screen):
-    def submit_account(self):
-        """Event handler tombol 'Done'"""
-        email = self.ids.email_input.text
-        password = self.ids.password_input.text
+class LoginScreen(Screen):
+    pesan = StringProperty("")
 
-        if not email or not password:
-            self.ids.error_label.text = "Email dan password wajib diisi!"
+    def login(self):
+        email = self.ids.email_input.text.strip()
+        password = self.ids.password_input.text.strip()
+
+        if email == "" or password == "":
+            self.pesan = "Email dan password wajib diisi"
             return
 
-        self.ids.error_label.text = ""
-        self.manager.transition = SlideTransition(direction="left")
-        self.manager.current = "login"
+        self.pesan = ""
+        self.manager.current = "dashboard"
 
 
-# ------------------------------------------------------------------
-# SCREEN 3: LOGIN
-# ------------------------------------------------------------------
-class LoginScreen(Screen):
-    def do_login(self):
-        """Event handler tombol 'Next' pada Login"""
-        # Di sini nanti bisa ditambahkan validasi login sungguhan
-        self.manager.transition = SlideTransition(direction="left")
-        self.manager.current = "profile"
+class DashboardScreen(Screen):
+    total_products = StringProperty("0")
+    total_stock = StringProperty("0")
+    total_orders = StringProperty("0")
+
+    def on_pre_enter(self, *args):
+        self.refresh_dashboard()
+
+    def refresh_dashboard(self):
+        try:
+            products = get_products()
+
+            self.total_products = str(len(products))
+
+            total_stock = 0
+            for product in products:
+                try:
+                    total_stock += int(product[5] or 0)
+                except Exception:
+                    pass
+
+            self.total_stock = str(total_stock)
+            self.total_orders = str(get_order_count())
+
+        except Exception as error:
+            print("Dashboard error:", error)
+            self.total_products = "0"
+            self.total_stock = "0"
+            self.total_orders = "0"
 
 
-# ------------------------------------------------------------------
-# SCREEN 4: PROFILE / AKUN
-# ------------------------------------------------------------------
-class ProfileScreen(Screen):
-    def go_to_search(self):
-        self.manager.transition = SlideTransition(direction="left")
-        self.manager.current = "search"
-
-    def go_home(self):
-        self.manager.transition = SlideTransition(direction="right")
-        self.manager.current = "shop"
-
-    def go_cart(self):
-        self.manager.current = "cart"
-
-
-# ------------------------------------------------------------------
-# SCREEN 5: SEARCH
-# ------------------------------------------------------------------
-class SearchScreen(Screen):
-    def select_category(self, category_name):
-        """Event handler saat kategori (AHA, DOVE, dst) ditekan"""
-        print(f"Kategori dipilih: {category_name}")
-        self.manager.current = "shop"
-
-    def go_home(self):
-        self.manager.current = "shop"
-
-    def go_profile(self):
-        self.manager.current = "profile"
-
-    def go_cart(self):
-        self.manager.current = "cart"
-
-
-# ------------------------------------------------------------------
-# SCREEN 6: SHOP
-# ------------------------------------------------------------------
-class ShopScreen(Screen):
+class ProductsScreen(Screen):
     def on_pre_enter(self, *args):
         self.load_products()
 
     def load_products(self):
-        grid = self.ids.product_grid
-        grid.clear_widgets()
-        from kivy.uix.button import Button
+        self.ids.product_list.clear_widgets()
 
-        for product in PRODUCTS:
-            harga = f"Rp.{product['price']:,}".replace(",", ".")
-            btn = Button(
-                text=f"[b]{product['name']}[/b]\n[color=1766f2]{harga}[/color]",
-                markup=True,
-                halign="center",
-                size_hint_y=None,
-                height=140,
-                background_normal="",
-                background_color=(0.96, 0.96, 0.96, 1),
-                color=(0, 0, 0, 1),
-            )
-            btn.bind(on_release=lambda inst, p=product: self.open_detail(p))
-            grid.add_widget(btn)
+        products = get_products()
 
-    def open_detail(self, product):
-        """Event handler saat produk ditekan -> ke halaman detail"""
-        detail_screen = self.manager.get_screen("detail_produk")
-        detail_screen.set_product(product)
-        self.manager.transition = SlideTransition(direction="left")
-        self.manager.current = "detail_produk"
-
-    def go_search(self):
-        self.manager.current = "search"
-
-    def go_profile(self):
-        self.manager.current = "profile"
-
-    def go_cart(self):
-        self.manager.current = "cart"
-
-
-# ------------------------------------------------------------------
-# SCREEN 7: DETAIL PRODUK
-# ------------------------------------------------------------------
-class DetailProdukScreen(Screen):
-    product_name = StringProperty("")
-    product_price = NumericProperty(0)
-
-    def set_product(self, product):
-        self.product_name = product["name"]
-        self.product_price = product["price"]
-
-    def add_to_cart(self):
-        """Event handler tombol 'Add to cart'"""
-        app = App.get_running_app()
-        app.cart.append({"name": self.product_name, "price": self.product_price})
-        print(f"{self.product_name} ditambahkan ke keranjang")
-
-    def buy_now(self):
-        """Event handler tombol 'Buy now' -> langsung ke cart"""
-        self.add_to_cart()
-        self.manager.transition = SlideTransition(direction="left")
-        self.manager.current = "cart"
-
-    def go_back(self):
-        self.manager.transition = SlideTransition(direction="right")
-        self.manager.current = "shop"
-
-
-# ------------------------------------------------------------------
-# SCREEN 8: CART (KERANJANG)
-# ------------------------------------------------------------------
-class CartScreen(Screen):
-    def on_pre_enter(self, *args):
-        self.load_cart()
-
-    def load_cart(self):
-        app = App.get_running_app()
-        grid = self.ids.cart_grid
-        grid.clear_widgets()
-        from kivy.uix.label import Label
-
-        total = 0
-        for item in app.cart:
-            harga = f"Rp.{item['price']:,}".replace(",", ".")
-            grid.add_widget(
+        if not products:
+            self.ids.product_list.add_widget(
                 Label(
-                    text=f"{item['name']}   [color=1766f2]{harga}[/color]",
-                    markup=True,
-                    halign="left",
-                    text_size=(320, None),
+                    text="Belum ada produk di database",
                     size_hint_y=None,
-                    height=40,
-                    color=(0, 0, 0, 1),
+                    height=50,
+                    font_size="16sp"
                 )
             )
-            total += item["price"]
+            return
 
-        self.ids.total_label.text = f"Total: Rp.{total:,}".replace(",", ".")
+        for product in products:
+            product_id = product[0]
+            name = product[1]
+            brand = product[2] or "-"
+            price = product[3]
+            stock = product[5] or 0
 
-    def pay(self):
-        """Event handler tombol 'Pay'"""
-        print("Pembayaran diproses...")
-        app = App.get_running_app()
-        app.cart.clear()
-        self.manager.current = "shop"
+            text = (
+                f"ID: {product_id}\n"
+                f"{name} | Brand: {brand}\n"
+                f"Harga: Rp{price:,} | Stok: {stock}"
+            )
 
-    def go_shop(self):
-        self.manager.current = "shop"
+            self.ids.product_list.add_widget(
+                Label(
+                    text=text,
+                    size_hint_y=None,
+                    height=80,
+                    halign="left",
+                    valign="middle",
+                    font_size="15sp"
+                )
+            )
 
 
-# ------------------------------------------------------------------
-# SCREEN MANAGER
-# ------------------------------------------------------------------
+class OrdersScreen(Screen):
+    def on_pre_enter(self, *args):
+        self.ids.orders_message.text = (
+            f"Total pesanan saat ini: {get_order_count()}"
+        )
+
+
+class ProfileScreen(Screen):
+    def pilih_foto(self):
+        root_tk = tk.Tk()
+        root_tk.withdraw()
+        root_tk.attributes("-topmost", True)
+
+        file_path = filedialog.askopenfilename(
+            title="Pilih Foto Profil",
+            filetypes=[
+                ("File Gambar", "*.png *.jpg *.jpeg *.webp"),
+                ("Semua File", "*.*")
+            ]
+        )
+
+        root_tk.destroy()
+
+        if file_path:
+            self.ids.foto_profil.source = file_path
+            self.ids.foto_profil.reload()
+            self.ids.profile_message.text = "Foto profil berhasil dipilih"
+
+    def save_profile(self):
+        nama = self.ids.nama_admin.text.strip()
+        email = self.ids.email_admin.text.strip()
+        toko = self.ids.nama_toko.text.strip()
+
+        if nama == "" or email == "" or toko == "":
+            self.ids.profile_message.text = "Semua data wajib diisi"
+            return
+
+        self.ids.profile_message.text = "Perubahan berhasil disimpan"
+
+
 class NavigasiManager(ScreenManager):
     pass
 
 
-# ------------------------------------------------------------------
-# APLIKASI UTAMA
-# ------------------------------------------------------------------
 class EarthGlowApp(App):
     def build(self):
-        self.cart = []  # menyimpan item keranjang belanja (state sederhana)
-        self.title = "EarthGlow Soap"
-        # PENTING: navigasi.kv berisi definisi root widget (NavigasiManager
-        # beserta semua screen di dalamnya). Builder.load_file() akan
-        # MENGEMBALIKAN widget tersebut -- harus di-return langsung,
-        # bukan membuat NavigasiManager() baru yang kosong tanpa screen.
+        create_tables()
+        self.title = "EarthGlow Soap Admin"
         return Builder.load_file("navigasi.kv")
 
 

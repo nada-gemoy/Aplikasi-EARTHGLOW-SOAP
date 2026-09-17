@@ -1,0 +1,441 @@
+NavigasiManager:
+    WelcomeScreen:
+    LoginScreen:
+    DashboardScreen:
+    ProductsScreen:
+    OrdersScreen:
+    ProfileScreen:
+
+
+<WelcomeScreen>:
+    name: "welcome"
+
+    BoxLayout:
+        orientation: "vertical"
+        padding: 30
+        spacing: 20
+
+        canvas.before:
+            Color:
+                rgba: 0.92, 0.97, 0.94, 1
+            Rectangle:
+                pos: self.pos
+                size: self.size
+
+        Widget:
+
+        Label:
+            text: "EARTHGLOW SOAP"
+            font_size: "30sp"
+            bold: True
+            color: 0.12, 0.35, 0.25, 1
+
+        Label:
+            text: "Admin Panel"
+            font_size: "21sp"
+            color: 0.25, 0.45, 0.35, 1
+
+        Label:
+            text: "Kelola produk dan pesanan dengan mudah"
+            font_size: "15sp"
+            color: 0.3, 0.3, 0.3, 1
+
+        Widget:
+
+        Button:
+            text: "MASUK SEBAGAI ADMIN"
+            size_hint_y: None
+            height: 55
+            background_normal: ""
+            background_color: 0.25, 0.55, 0.4, 1
+            on_release: root.manager.current = "login"
+
+        Widget:
+
+
+<LoginScreen>:
+    name: "login"
+
+    BoxLayout:
+        orientation: "vertical"
+        padding: 30
+        spacing: 15
+
+        canvas.before:
+            Color:
+                rgba: 0.95, 0.98, 0.96, 1
+            Rectangle:
+                pos: self.pos
+                size: self.size
+
+        Label:
+            text: "LOGIN ADMIN"
+            font_size: "26sp"
+            bold: True
+            color: 0.12, 0.35, 0.25, 1
+            size_hint_y: None
+            height: 60
+
+        TextInput:
+            id: email_input
+            hint_text: "Email admin"
+            multiline: False
+            size_hint_y: None
+            height: 50
+
+        TextInput:
+            id: password_input
+            hint_text: "Password"
+            password: True
+            multiline: False
+            size_hint_y: None
+            height: 50
+
+        Label:
+            text: root.pesan
+            color: 0.8, 0.1, 0.1, 1
+            size_hint_y: None
+            height: 35
+
+        Button:
+            text: "LOGIN"
+            size_hint_y: None
+            height: 50
+            background_normal: ""
+            background_color: 0.25, 0.55, 0.4, 1
+            on_release: root.login()
+
+        Button:
+            text: "Kembali"
+            size_hint_y: None
+            height: 45
+            on_release: root.manager.current = "welcome"
+
+        Widget:
+
+
+<DashboardScreen>:
+    name: "dashboard"
+
+    BoxLayout:
+        orientation: "vertical"
+        padding: 20
+        spacing: 15
+
+        canvas.before:
+            Color:
+                rgba: 0.94, 0.98, 0.95, 1
+            Rectangle:
+                pos: self.pos
+                size: self.size
+
+        Label:
+            text: "DASHBOARD EARTHGLOW"
+            font_size: "25sp"
+            bold: True
+            color: 0.12, 0.35, 0.25, 1
+            size_hint_y: None
+            height: 65
+
+        GridLayout:
+            cols: 3
+            spacing: 10
+            size_hint_y: None
+            height: 120
+
+            Label:
+                text: "TOTAL PRODUK\n" + root.total_products
+                halign: "center"
+                valign: "middle"
+                text_size: self.size
+                color: 0.1, 0.3, 0.2, 1
+
+            Label:
+                text: "TOTAL STOK\n" + root.total_stock
+                halign: "center"
+                valign: "middle"
+                text_size: self.size
+                color: 0.1, 0.3, 0.2, 1
+
+            Label:
+                text: "TOTAL PESANAN\n" + root.total_orders
+                halign: "center"
+                valign: "middle"
+                text_size: self.size
+                color: 0.1, 0.3, 0.2, 1
+
+        Widget:
+
+        Button:
+            text: "KELOLA PRODUK"
+            size_hint_y: None
+            height: 55
+            on_release: root.manager.current = "products"
+
+        Button:
+            text: "LIHAT PESANAN"
+            size_hint_y: None
+            height: 55
+            on_release: root.manager.current = "orders"
+
+        Button:
+            text: "PROFIL"
+            size_hint_y: None
+            height: 55
+            on_release: root.manager.current = "profile"
+
+        Button:
+            text: "LOGOUT"
+            size_hint_y: None
+            height: 50
+            on_release: root.manager.current = "welcome"
+
+        Widget:
+
+
+<ProductsScreen>:
+    name: "products"
+
+    BoxLayout:
+        orientation: "vertical"
+        padding: 20
+        spacing: 10
+
+        Label:
+            text: "DAFTAR PRODUK"
+            font_size: "25sp"
+            bold: True
+            color: 0.12, 0.35, 0.25, 1
+            size_hint_y: None
+            height: 60
+
+        ScrollView:
+            do_scroll_x: False
+
+            GridLayout:
+                id: product_list
+                cols: 1
+                spacing: 8
+                size_hint_y: None
+                height: self.minimum_height
+
+        Button:
+            text: "KEMBALI KE DASHBOARD"
+            size_hint_y: None
+            height: 50
+            on_release: root.manager.current = "dashboard"
+
+
+<OrdersScreen>:
+    name: "orders"
+
+    BoxLayout:
+        orientation: "vertical"
+        padding: 25
+        spacing: 20
+
+        Label:
+            text: "DATA PESANAN"
+            font_size: "25sp"
+            bold: True
+            color: 0.12, 0.35, 0.25, 1
+            size_hint_y: None
+            height: 60
+
+        Label:
+            id: orders_message
+            text: "Memuat data pesanan..."
+            font_size: "18sp"
+
+        Widget:
+
+        Button:
+            text: "KEMBALI KE DASHBOARD"
+            size_hint_y: None
+            height: 50
+            on_release: root.manager.current = "dashboard"
+
+
+<ProfileScreen>:
+    name: "profile"
+
+    ScrollView:
+        do_scroll_x: False
+
+        BoxLayout:
+            orientation: "vertical"
+            padding: 30
+            spacing: 12
+            size_hint_y: None
+            height: self.minimum_height
+
+            canvas.before:
+                Color:
+                    rgba: 0.94, 0.98, 0.97, 1
+                Rectangle:
+                    pos: self.pos
+                    size: self.size
+
+            Label:
+                text: "Edit Profile"
+                font_size: "28sp"
+                bold: True
+                color: 0.10, 0.28, 0.20, 1
+                size_hint_y: None
+                height: 55
+
+            Label:
+                text: "Kelola informasi akun kamu"
+                font_size: "14sp"
+                color: 0.35, 0.42, 0.38, 1
+                size_hint_y: None
+                height: 30
+
+            Widget:
+                size_hint_y: None
+                height: 5
+
+            Image:
+                id: foto_profil
+                source: ""
+                size_hint: None, None
+                size: 125, 125
+                pos_hint: {"center_x": 0.5}
+
+            Button:
+                text: "Ubah Foto Profil"
+                size_hint: None, None
+                size: 150, 38
+                pos_hint: {"center_x": 0.5}
+                background_normal: ""
+                background_color: 0.78, 0.89, 0.83, 1
+                color: 0.10, 0.30, 0.20, 1
+                font_size: "13sp"
+                on_release: root.pilih_foto()
+
+            Widget:
+                size_hint_y: None
+                height: 12
+
+            Label:
+                text: "Nama Admin"
+                color: 0.35, 0.42, 0.38, 1
+                font_size: "13sp"
+                halign: "left"
+                text_size: self.size
+                size_hint_y: None
+                height: 25
+
+            BoxLayout:
+                spacing: 8
+                size_hint_y: None
+                height: 48
+
+                TextInput:
+                    id: nama_admin
+                    text: "EarthGlow Admin"
+                    multiline: False
+                    background_color: 1, 1, 1, 1
+                    foreground_color: 0.1, 0.1, 0.1, 1
+                    padding: 15, 12
+
+                Button:
+                    text: "Edit"
+                    size_hint_x: None
+                    width: 65
+                    background_normal: ""
+                    background_color: 0.82, 0.91, 0.95, 1
+                    color: 0.15, 0.30, 0.40, 1
+
+            Label:
+                text: "Email Admin"
+                color: 0.35, 0.42, 0.38, 1
+                font_size: "13sp"
+                halign: "left"
+                text_size: self.size
+                size_hint_y: None
+                height: 25
+
+            BoxLayout:
+                spacing: 8
+                size_hint_y: None
+                height: 48
+
+                TextInput:
+                    id: email_admin
+                    text: "admin@earthglow.com"
+                    multiline: False
+                    background_color: 1, 1, 1, 1
+                    foreground_color: 0.1, 0.1, 0.1, 1
+                    padding: 15, 12
+
+                Button:
+                    text: "Edit"
+                    size_hint_x: None
+                    width: 65
+                    background_normal: ""
+                    background_color: 0.82, 0.91, 0.95, 1
+                    color: 0.15, 0.30, 0.40, 1
+
+            Label:
+                text: "Nama Toko"
+                color: 0.35, 0.42, 0.38, 1
+                font_size: "13sp"
+                halign: "left"
+                text_size: self.size
+                size_hint_y: None
+                height: 25
+
+            BoxLayout:
+                spacing: 8
+                size_hint_y: None
+                height: 48
+
+                TextInput:
+                    id: nama_toko
+                    text: "EarthGlow Soap"
+                    multiline: False
+                    background_color: 1, 1, 1, 1
+                    foreground_color: 0.1, 0.1, 0.1, 1
+                    padding: 15, 12
+
+                Button:
+                    text: "Edit"
+                    size_hint_x: None
+                    width: 65
+                    background_normal: ""
+                    background_color: 0.82, 0.91, 0.95, 1
+                    color: 0.15, 0.30, 0.40, 1
+
+            Widget:
+                size_hint_y: None
+                height: 8
+
+            Label:
+                id: profile_message
+                text: ""
+                color: 0.10, 0.45, 0.25, 1
+                font_size: "13sp"
+                size_hint_y: None
+                height: 30
+
+            Button:
+                text: "Simpan Perubahan"
+                size_hint_y: None
+                height: 50
+                background_normal: ""
+                background_color: 0.25, 0.55, 0.40, 1
+                font_size: "15sp"
+                on_release: root.save_profile()
+
+            Button:
+                text: "Kembali"
+                size_hint_y: None
+                height: 45
+                background_normal: ""
+                background_color: 0.35, 0.35, 0.35, 1
+                on_release: root.manager.current = "dashboard"
+
+            Widget:
+                size_hint_y: None
+                height: 20
