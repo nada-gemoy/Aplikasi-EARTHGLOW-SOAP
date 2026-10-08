@@ -25,15 +25,46 @@ earthglow_soap/
 
 ## Cara Menjalankan
 
-1. Install Kivy terlebih dahulu:
+1. Install dependensi:
    ```
-   pip install kivy
+   pip install -r requirements.txt
    ```
 
 2. Jalankan aplikasi:
    ```
    python main.py
    ```
+
+## Laporan Keuangan dan Ekspor Excel
+
+Dashboard memisahkan **Transaksi Langsung** dari **Pesanan Online**. Keduanya
+memiliki form pencatatan berdasarkan produk, nama pemesan, jumlah, pembayaran,
+dan status; pesanan online juga mewajibkan alamat pengiriman. Stok diperbarui
+otomatis saat transaksi dicatat. Daftar dan ringkasan pembukuan tiap saluran
+ditampilkan terpisah. Data transaksi dari versi lama belum menyimpan saluran;
+agar tidak hilang, data lama tetap ditampilkan di daftar pesanan online.
+Tabel transaksi, retur, dan laporan disusun sebagai kartu data dua kolom yang
+mengikuti lebar layar ponsel, sehingga tidak perlu menggeser halaman ke kanan
+untuk membaca kolom.
+
+Buka tombol dashboard **RETUR BARANG** untuk melihat transaksi dan riwayat
+retur; tekan **PROSES RETUR** pada transaksi lunas yang dipilih. Isi jumlah
+barang retur dan keluhan, lalu pilih **Uang kembali** atau **Kirim pengganti**
+beserta produk penggantinya. Nilai retur, uang kembali, biaya/kerugian,
+serta laba yang berkurang dicatat. Barang retur menambah stok otomatis dan
+barang pengganti mengurangi stok otomatis.
+
+Isi HPP (biaya modal per barang) pada form Kelola Produk. HPP disimpan bersama
+transaksi saat penjualan dicatat, sehingga perubahan HPP produk berikutnya
+tidak mengubah laba transaksi lama. Transaksi lama yang belum memiliki data HPP
+ditandai tanpa HPP; labanya tidak dihitung seolah-olah modalnya nol.
+
+Pada menu **Laporan Keuangan**, pilih **EKSPOR EXCEL**. Berkas `.xlsx`
+disimpan di folder `Downloads` dengan lembar Ringkasan, Transaksi, dan Retur.
+Rumus Excel menghitung omzet, HPP, laba, dan nilai retur terpisah untuk
+transaksi langsung serta pesanan online. Excel menghitung ulang saat berkas
+dibuka. Laba yang ditampilkan adalah laba kotor (omzet dikurangi HPP), belum
+dikurangi biaya operasional lain.
 
 ## Cara Mengembangkan Lebih Lanjut
 

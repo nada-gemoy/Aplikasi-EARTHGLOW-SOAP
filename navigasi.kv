@@ -3,7 +3,9 @@ NavigasiManager:
     LoginScreen:
     DashboardScreen:
     ProductsScreen:
+    DirectTransactionsScreen:
     OrdersScreen:
+    ReturnsScreen:
     FinancialReportScreen:
     ProfileScreen:
 
@@ -121,127 +123,143 @@ NavigasiManager:
 <DashboardScreen>:
     name: "dashboard"
 
-    BoxLayout:
-        orientation: "vertical"
-        padding: 18
-        spacing: 12
+    ScrollView:
+        do_scroll_x: False
+        bar_width: dp(4)
 
-        canvas.before:
-            Color:
-                rgba: 0.94, 0.98, 0.95, 1
-            Rectangle:
-                pos: self.pos
-                size: self.size
-
-        Label:
-            text: "DASHBOARD EARTHGLOW"
-            font_size: "22sp"
-            bold: True
-            color: 0.12, 0.35, 0.25, 1
+        BoxLayout:
+            orientation: "vertical"
+            padding: dp(14)
+            spacing: dp(10)
             size_hint_y: None
-            height: 50
+            height: self.minimum_height
 
-        GridLayout:
-            cols: 2
-            spacing: 10
-            size_hint_y: None
-            height: 160
+            canvas.before:
+                Color:
+                    rgba: 0.94, 0.98, 0.95, 1
+                Rectangle:
+                    pos: self.pos
+                    size: self.size
 
             Label:
-                text: "TOTAL PRODUK\n" + root.total_products
-                halign: "center"
-                valign: "middle"
-                text_size: self.size
-                color: 0.1, 0.3, 0.2, 1
-                canvas.before:
-                    Color:
-                        rgba: 0.93, 0.99, 0.95, 1
-                    Rectangle:
-                        pos: self.pos
-                        size: self.size
+                text: "DASHBOARD EARTHGLOW"
+                font_size: "22sp"
+                bold: True
+                color: 0.12, 0.35, 0.25, 1
+                size_hint_y: None
+                height: dp(48)
 
-            Label:
-                text: "TOTAL STOK\n" + root.total_stock
-                halign: "center"
-                valign: "middle"
-                text_size: self.size
-                color: 0.1, 0.3, 0.2, 1
-                canvas.before:
-                    Color:
-                        rgba: 0.92, 0.98, 0.94, 1
-                    Rectangle:
-                        pos: self.pos
-                        size: self.size
+            GridLayout:
+                cols: 2
+                spacing: dp(8)
+                size_hint_y: None
+                height: dp(144)
 
-            Label:
-                text: "TOTAL PESANAN\n" + root.total_orders
-                halign: "center"
-                valign: "middle"
-                text_size: self.size
-                color: 0.1, 0.3, 0.2, 1
-                canvas.before:
-                    Color:
-                        rgba: 0.90, 0.96, 0.91, 1
-                    Rectangle:
-                        pos: self.pos
-                        size: self.size
+                Label:
+                    text: "TOTAL PRODUK\n" + root.total_products
+                    halign: "center"
+                    valign: "middle"
+                    text_size: self.size
+                    color: 0.1, 0.3, 0.2, 1
+                    canvas.before:
+                        Color:
+                            rgba: 0.93, 0.99, 0.95, 1
+                        Rectangle:
+                            pos: self.pos
+                            size: self.size
 
-            Label:
-                text: "STATUS\nONLINE"
-                halign: "center"
-                valign: "middle"
-                text_size: self.size
-                color: 0.1, 0.3, 0.2, 1
-                canvas.before:
-                    Color:
-                        rgba: 0.88, 0.94, 0.90, 1
-                    Rectangle:
-                        pos: self.pos
-                        size: self.size
+                Label:
+                    text: "TOTAL STOK\n" + root.total_stock
+                    halign: "center"
+                    valign: "middle"
+                    text_size: self.size
+                    color: 0.1, 0.3, 0.2, 1
+                    canvas.before:
+                        Color:
+                            rgba: 0.92, 0.98, 0.94, 1
+                        Rectangle:
+                            pos: self.pos
+                            size: self.size
 
-        Widget:
+                Label:
+                    text: "PESANAN ONLINE\n" + root.total_orders
+                    halign: "center"
+                    valign: "middle"
+                    text_size: self.size
+                    color: 0.1, 0.3, 0.2, 1
+                    canvas.before:
+                        Color:
+                            rgba: 0.90, 0.96, 0.91, 1
+                        Rectangle:
+                            pos: self.pos
+                            size: self.size
 
-        Button:
-            text: "KELOLA PRODUK"
-            size_hint_y: None
-            height: 54
-            background_normal: ""
-            background_color: 0.25, 0.55, 0.4, 1
-            on_release: root.manager.current = "products"
+                Label:
+                    text: "TRANSAKSI LANGSUNG\n" + root.total_direct
+                    halign: "center"
+                    valign: "middle"
+                    text_size: self.size
+                    color: 0.1, 0.3, 0.2, 1
+                    canvas.before:
+                        Color:
+                            rgba: 0.88, 0.94, 0.90, 1
+                        Rectangle:
+                            pos: self.pos
+                            size: self.size
 
-        Button:
-            text: "LIHAT PESANAN"
-            size_hint_y: None
-            height: 54
-            background_normal: ""
-            background_color: 0.31, 0.62, 0.46, 1
-            on_release: root.manager.current = "orders"
+            Button:
+                text: "PEMBELIAN / TRANSAKSI LANGSUNG"
+                size_hint_y: None
+                height: dp(50)
+                font_size: "14sp"
+                background_normal: ""
+                background_color: 0.18, 0.52, 0.38, 1
+                on_release: root.manager.current = "direct_sales"
 
-        Button:
-            text: "LAPORAN KEUANGAN"
-            size_hint_y: None
-            height: 54
-            background_normal: ""
-            background_color: 0.39, 0.69, 0.54, 1
-            on_release: root.manager.current = "financial_report"
+            Button:
+                text: "PESANAN ONLINE"
+                size_hint_y: None
+                height: dp(50)
+                font_size: "14sp"
+                background_normal: ""
+                background_color: 0.25, 0.55, 0.4, 1
+                on_release: root.manager.current = "orders"
 
-        Button:
-            text: "PROFIL"
-            size_hint_y: None
-            height: 54
-            background_normal: ""
-            background_color: 0.48, 0.77, 0.64, 1
-            on_release: root.manager.current = "profile"
+            Button:
+                text: "RETUR BARANG"
+                size_hint_y: None
+                height: dp(50)
+                font_size: "14sp"
+                background_normal: ""
+                background_color: 0.55, 0.38, 0.24, 1
+                on_release: root.manager.current = "returns"
 
-        Button:
-            text: "LOGOUT"
-            size_hint_y: None
-            height: 50
-            background_normal: ""
-            background_color: 0.38, 0.39, 0.40, 1
-            on_release: root.manager.current = "welcome"
+            Button:
+                text: "KELOLA PRODUK"
+                size_hint_y: None
+                height: dp(50)
+                font_size: "14sp"
+                background_normal: ""
+                background_color: 0.31, 0.62, 0.46, 1
+                on_release: root.manager.current = "products"
 
-        Widget:
+            Button:
+                text: "LAPORAN KEUANGAN"
+                size_hint_y: None
+                height: dp(50)
+                font_size: "14sp"
+                background_normal: ""
+                background_color: 0.39, 0.69, 0.54, 1
+                on_release: root.manager.current = "financial_report"
+
+            Button:
+                text: "PROFIL"
+                size_hint_y: None
+                height: dp(50)
+                font_size: "14sp"
+                background_normal: ""
+                background_color: 0.48, 0.77, 0.64, 1
+                on_release: root.manager.current = "profile"
 
 
 <ProductsScreen>:
@@ -249,8 +267,8 @@ NavigasiManager:
 
     BoxLayout:
         orientation: "vertical"
-        padding: 20
-        spacing: 10
+        padding: dp(12)
+        spacing: dp(8)
 
         Label:
             text: "DAFTAR PRODUK"
@@ -258,7 +276,7 @@ NavigasiManager:
             bold: True
             color: 0.12, 0.35, 0.25, 1
             size_hint_y: None
-            height: 60
+            height: dp(48)
 
         ScrollView:
             do_scroll_x: False
@@ -272,8 +290,8 @@ NavigasiManager:
 
         BoxLayout:
             size_hint_y: None
-            height: 50
-            spacing: 10
+            height: dp(48)
+            spacing: dp(8)
 
             Button:
                 text: "TAMBAH BARANG"
@@ -289,10 +307,17 @@ NavigasiManager:
 <OrdersScreen>:
     name: "orders"
 
+<DirectTransactionsScreen>:
+    name: "direct_sales"
+
+<ReturnsScreen>:
+    name: "returns"
+
+<ChannelTransactionsScreen>:
     BoxLayout:
         orientation: "vertical"
-        padding: 25
-        spacing: 20
+        padding: dp(10)
+        spacing: dp(6)
 
         canvas.before:
             Color:
@@ -302,38 +327,130 @@ NavigasiManager:
                 size: self.size
 
         Label:
-            text: "DATA PESANAN"
-            font_size: "25sp"
+            text: root.screen_title
+            font_size: "23sp"
             bold: True
             color: 0.12, 0.35, 0.25, 1
             size_hint_y: None
-            height: 60
+            height: dp(40)
+
+        Label:
+            id: channel_summary
+            text: "Ringkasan pembukuan..."
+            font_size: "12sp"
+            halign: "left"
+            valign: "middle"
+            text_size: self.size
+            color: 0.12, 0.25, 0.18, 1
+            size_hint_y: None
+            height: dp(82)
+
+        Label:
+            id: channel_message
+            text: ""
+            font_size: "11sp"
+            halign: "left"
+            valign: "middle"
+            text_size: self.size
+            color: 0.12, 0.45, 0.25, 1
+            size_hint_y: None
+            height: dp(38)
 
         ScrollView:
-            do_scroll_x: True
+            id: orders_scroll
+            do_scroll_x: False
             do_scroll_y: True
+            size_hint_y: 0.42 if root.manages_returns else 1
+            bar_width: dp(4)
 
             GridLayout:
                 id: orders_table
-                cols: 8
-                spacing: 3
-                padding: 3
-                size_hint: (None, None)
-                width: 1400
-                height: 200
+                cols: 1
+                spacing: dp(6)
+                padding: 0
+                size_hint: (1, None)
+                width: orders_scroll.width
+                height: self.minimum_height
+
+        Label:
+            text: "RIWAYAT RETUR"
+            opacity: 1 if root.manages_returns else 0
+            font_size: "17sp"
+            bold: True
+            color: 0.12, 0.35, 0.25, 1
+            size_hint_y: None
+            height: dp(28) if root.manages_returns else 0
+
+        ScrollView:
+            id: return_scroll
+            do_scroll_x: False
+            do_scroll_y: True
+            size_hint_y: 0.32 if root.manages_returns else 0
+            height: dp(0)
+            opacity: 1 if root.manages_returns else 0
+            bar_width: dp(4)
+
+            GridLayout:
+                id: return_history
+                cols: 1
+                spacing: dp(6)
+                padding: 0
+                size_hint: (1, None)
+                width: return_scroll.width
+                height: self.minimum_height
 
         BoxLayout:
             size_hint_y: None
-            height: 50
-            spacing: 10
+            orientation: "vertical"
+            height: dp(96) if not root.manages_returns else dp(54)
+            spacing: dp(5)
 
             Button:
-                text: "LAPORAN KEUANGAN"
-                on_release: root.manager.current = "financial_report"
+                text: "CATAT PESANAN" if root.channel == "online" else "CATAT TRANSAKSI"
+                opacity: 0 if root.manages_returns else 1
+                disabled: root.manages_returns
+                size_hint_y: None
+                height: dp(42) if not root.manages_returns else 0
+                background_normal: ""
+                background_color: 0.25, 0.55, 0.4, 1
+                font_size: "13sp"
+                on_release: root.create_order_form()
 
-            Button:
-                text: "KEMBALI KE DASHBOARD"
-                on_release: root.manager.current = "dashboard"
+            BoxLayout:
+                size_hint_y: None
+                height: dp(44) if not root.manages_returns else 0
+                spacing: dp(6)
+                opacity: 1 if not root.manages_returns else 0
+                disabled: root.manages_returns
+
+                Button:
+                    text: "RETUR BARANG"
+                    background_normal: ""
+                    background_color: 0.55, 0.38, 0.24, 1
+                    font_size: "12sp"
+                    on_release: root.manager.current = "returns"
+
+                Button:
+                    text: "DASHBOARD"
+                    font_size: "12sp"
+                    on_release: root.manager.current = "dashboard"
+
+            BoxLayout:
+                size_hint_y: None
+                height: dp(44) if root.manages_returns else 0
+                spacing: dp(6)
+                opacity: 1 if root.manages_returns else 0
+                disabled: not root.manages_returns
+
+                Button:
+                    text: "PESANAN ONLINE"
+                    font_size: "12sp"
+                    on_release: root.manager.current = "orders"
+
+                Button:
+                    text: "DASHBOARD"
+                    font_size: "12sp"
+                    on_release: root.manager.current = "dashboard"
 
 
 <FinancialReportScreen>:
@@ -341,8 +458,8 @@ NavigasiManager:
 
     BoxLayout:
         orientation: "vertical"
-        padding: 20
-        spacing: 12
+        padding: dp(12)
+        spacing: dp(8)
 
         canvas.before:
             Color:
@@ -357,7 +474,7 @@ NavigasiManager:
             bold: True
             color: 0.12, 0.35, 0.25, 1
             size_hint_y: None
-            height: 60
+            height: dp(48)
 
         Label:
             id: report_summary
@@ -365,45 +482,66 @@ NavigasiManager:
             halign: "left"
             valign: "top"
             text_size: self.size
-            font_size: "16sp"
+            font_size: "12sp"
             color: 0.15, 0.25, 0.20, 1
             size_hint_y: None
-            height: 120
+            height: dp(116)
 
         ScrollView:
-            do_scroll_x: True
+            id: report_scroll
+            do_scroll_x: False
             do_scroll_y: True
+            bar_width: dp(4)
 
             GridLayout:
                 id: report_table
-                cols: 8
-                spacing: 3
-                padding: 3
-                size_hint: (None, None)
-                width: 1400
-                height: 200
+                cols: 1
+                spacing: dp(6)
+                padding: 0
+                size_hint: (1, None)
+                width: report_scroll.width
+                height: self.minimum_height
 
         Label:
             id: report_message
             text: ""
+            font_size: "11sp"
             color: 0.12, 0.55, 0.30, 1
             size_hint_y: None
-            height: 22
+            height: dp(32)
+            text_size: self.size
+            halign: "left"
+            valign: "middle"
 
         BoxLayout:
             size_hint_y: None
-            height: 50
-            spacing: 10
+            orientation: "vertical"
+            height: dp(92)
+            spacing: dp(5)
 
             Button:
-                text: "CETAK LAPORAN"
+                text: "EKSPOR EXCEL"
+                size_hint_y: None
+                height: dp(42)
                 background_normal: ""
-                background_color: 0.25, 0.55, 0.4, 1
-                on_release: root.print_report()
+                background_color: 0.18, 0.52, 0.38, 1
+                font_size: "13sp"
+                on_release: root.export_excel()
 
-            Button:
-                text: "KEMBALI"
-                on_release: root.manager.current = "dashboard"
+            BoxLayout:
+                size_hint_y: None
+                height: dp(42)
+                spacing: dp(6)
+
+                Button:
+                    text: "CETAK"
+                    font_size: "12sp"
+                    on_release: root.print_report()
+
+                Button:
+                    text: "DASHBOARD"
+                    font_size: "12sp"
+                    on_release: root.manager.current = "dashboard"
 
 
 <ProfileScreen>:
@@ -440,6 +578,14 @@ NavigasiManager:
                 color: 0.35, 0.42, 0.38, 1
                 size_hint_y: None
                 height: 30
+
+            Label:
+                text: "Akun aktif: " + (root.manager.current_user['name'] if root.manager.current_user else "EarthGlow Admin")
+                color: 0.12, 0.35, 0.25, 1
+                bold: True
+                font_size: "14sp"
+                size_hint_y: None
+                height: 28
 
             Widget:
                 size_hint_y: None
@@ -577,6 +723,14 @@ NavigasiManager:
                 background_color: 0.25, 0.55, 0.40, 1
                 font_size: "15sp"
                 on_release: root.save_profile()
+
+            Button:
+                text: "Logout"
+                size_hint_y: None
+                height: 45
+                background_normal: ""
+                background_color: 0.38, 0.39, 0.40, 1
+                on_release: root.logout()
 
             Button:
                 text: "Kembali"
