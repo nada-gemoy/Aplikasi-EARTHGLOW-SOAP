@@ -86,6 +86,21 @@ gateway pembayaran, dapur, kurir, pemindai barcode, atau printer. QRIS simulasi
 tidak menampilkan kode yang dapat dipindai; struk dan label hanya pratinjau di
 layar.
 
+## Membuat APK Android
+
+Proyek ini menggunakan Buildozer/python-for-android untuk membuat APK. Workflow
+GitHub Actions **Build Android APK** dapat dijalankan dari tab **Actions** dengan
+memilih **Run workflow**. Setelah job berhasil, unduh artefak
+`earthglow-soap-android-debug` dan pasang APK debug pada perangkat Android.
+Workflow juga berjalan otomatis saat perubahan aplikasi terkait di-push ke
+branch `main`.
+
+Build pertama mengunduh Android SDK/NDK dan bisa memerlukan waktu cukup lama.
+Di Windows, jalankan Buildozer melalui Linux/WSL; workflow GitHub menggunakan
+runner Ubuntu. Database disimpan pada penyimpanan privat aplikasi Android.
+Laporan Excel Android juga disimpan di penyimpanan privat aplikasi, sedangkan
+cetak langsung belum didukung di Android.
+
 ## Cara Mengembangkan Lebih Lanjut
 
 - Tambahkan gambar produk asli di folder `assets/` lalu tampilkan dengan widget `Image` di `navigasi.kv`.

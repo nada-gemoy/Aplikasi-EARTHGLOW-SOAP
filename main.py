@@ -22,6 +22,7 @@ from kivy.uix.spinner import Spinner
 from kivy.uix.textinput import TextInput
 from kivy.utils import platform
 
+import database as database_module
 from financial_export import export_financial_workbook
 from database import (
     create_tables,
@@ -49,25 +50,61 @@ class ProductPhoto(ButtonBehavior, Image):
 
 
 def open_image_picker(on_select):
-    initial_path = "/storage/emulated/0" if platform == "android" else os.path.expanduser("~")
-    chooser = FileChooserIconView(
-        path=initial_path,
-        filters=["*.png", "*.jpg", "*.jpeg", "*.webp"]
+    def show_picker():
+        initial_path = (
+            "/storage/emulated/0"
+            if platform == "android"
+            else os.path.expanduser("~")
+        )
+        chooser = FileChooserIconView(
+            path=initial_path,
+            filters=["*.png", "*.jpg", "*.jpeg", "*.webp"]
+        )
+        content = BoxLayout(orientation="vertical", spacing=dp(8), padding=dp(8))
+        content.add_widget(chooser)
+        actions = BoxLayout(size_hint_y=None, height=dp(46), spacing=dp(8))
+        popup = Popup(title="Pilih Gambar", content=content, size_hint=(0.95, 0.9))
+
+        def select_image(button):
+            if chooser.selection:
+                on_select(chooser.selection[0])
+                popup.dismiss()
+
+        actions.add_widget(Button(text="Pilih", on_release=select_image))
+        actions.add_widget(Button(text="Batal", on_release=lambda button: popup.dismiss()))
+        content.add_widget(actions)
+        popup.open()
+
+    if platform != "android":
+        show_picker()
+        return
+
+    from android.permissions import request_permissions
+    from jnius import autoclass
+
+    android_version = autoclass("android.os.Build$VERSION")
+    permission = (
+        "android.permission.READ_MEDIA_IMAGES"
+        if android_version.SDK_INT >= 33
+        else "android.permission.READ_EXTERNAL_STORAGE"
     )
-    content = BoxLayout(orientation="vertical", spacing=dp(8), padding=dp(8))
-    content.add_widget(chooser)
-    actions = BoxLayout(size_hint_y=None, height=dp(46), spacing=dp(8))
-    popup = Popup(title="Pilih Gambar", content=content, size_hint=(0.95, 0.9))
 
-    def select_image(button):
-        if chooser.selection:
-            on_select(chooser.selection[0])
-            popup.dismiss()
+    def on_permission_result(permissions, grants):
+        if grants and all(grants):
+            show_picker()
+            return
+        popup = Popup(
+            title="Izin Foto Diperlukan",
+            content=Label(
+                text="Izinkan akses foto di pengaturan Android untuk memilih gambar.",
+                halign="center",
+                valign="middle",
+            ),
+            size_hint=(0.9, 0.35),
+        )
+        popup.open()
 
-    actions.add_widget(Button(text="Pilih", on_release=select_image))
-    actions.add_widget(Button(text="Batal", on_release=lambda button: popup.dismiss()))
-    content.add_widget(actions)
-    popup.open()
+    request_permissions([permission], on_permission_result)
 
 
 class WelcomeScreen(Screen):
@@ -1489,6 +1526,42 @@ class FinancialReportScreen(Screen):
             ChannelTransactionsScreen.add_record_card(self, table, fields)
 
     def print_report(self):
+        if platform == "android":
+            content = BoxLayout(
+                orientation="vertical",
+                spacing=dp(12),
+                padding=dp(16),
+            )
+            with content.canvas.before:
+                Color(1, 1, 1, 1)
+                content.background = Rectangle(pos=content.pos, size=content.size)
+            content.bind(
+                pos=lambda widget, value: setattr(widget.background, "pos", value),
+                size=lambda widget, value: setattr(widget.background, "size", value),
+            )
+            content.add_widget(Label(
+                text=(
+                    "Cetak langsung belum didukung di Android. "
+                    "Gunakan EKSPOR EXCEL untuk menyimpan laporan."
+                ),
+                color=(0.12, 0.25, 0.18, 1),
+                halign="center",
+                valign="middle",
+            ))
+            popup = Popup(
+                title="Cetak Laporan",
+                content=content,
+                size_hint=(0.9, 0.42),
+            )
+            content.add_widget(Button(
+                text="Tutup",
+                size_hint_y=None,
+                height=dp(44),
+                on_release=lambda button: popup.dismiss(),
+            ))
+            popup.open()
+            return
+
         count, revenue, today, profit, orders_without_cost = get_financial_summary()
         direct = get_channel_financial_summary("direct")
         online = get_channel_financial_summary("online")
@@ -1526,7 +1599,10 @@ Laba kotor (omzet - HPP): Rp{profit:,}<br>Transaksi lunas tanpa HPP: {orders_wit
             self.ids.report_message.text = "Laporan dibuka di browser untuk dicetak"
 
     def export_excel(self):
-        downloads_dir = os.path.join(os.path.expanduser("~"), "Downloads")
+        if platform == "android":
+            downloads_dir = self.user_data_dir
+        else:
+            downloads_dir = os.path.join(os.path.expanduser("~"), "Downloads")
         try:
             os.makedirs(downloads_dir, exist_ok=True)
             filename = f"laporan_keuangan_earthglow_{datetime.now():%Y%m%d_%H%M%S}.xlsx"
@@ -1536,7 +1612,12 @@ Laba kotor (omzet - HPP): Rp{profit:,}<br>Transaksi lunas tanpa HPP: {orders_wit
             self.ids.report_message.text = f"Gagal menyimpan Excel: {error}"
             return
 
-        self.ids.report_message.text = f"Excel tersimpan di Downloads: {filename}"
+        if platform == "android":
+            self.ids.report_message.text = (
+                f"Excel tersimpan di penyimpanan aplikasi: {filename}"
+            )
+        else:
+            self.ids.report_message.text = f"Excel tersimpan di Downloads: {filename}"
 
 
 class ProfileScreen(Screen):
@@ -1616,6 +1697,11 @@ class NavigasiManager(ScreenManager):
 
 class EarthGlowApp(App):
     def build(self):
+        if platform == "android":
+            database_module.DATABASE_NAME = os.path.join(
+                self.user_data_dir,
+                "earthglow.db",
+            )
         create_tables()
         if platform == "android":
             Window.fullscreen = "auto"
@@ -1624,7 +1710,8 @@ class EarthGlowApp(App):
             Window.minimum_width = 360
             Window.minimum_height = 640
         self.title = "EarthGlow Soap Admin"
-        return Builder.load_file("navigasi.kv")
+        kv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "navigasi.kv")
+        return Builder.load_file(kv_path)
 
 
 if __name__ == "__main__":
