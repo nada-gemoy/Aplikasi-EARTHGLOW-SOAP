@@ -8,6 +8,7 @@ NavigasiManager:
     ReturnsScreen:
     FinancialReportScreen:
     ProfileScreen:
+    CashierScreen:
 
 
 <WelcomeScreen>:
@@ -214,10 +215,10 @@ NavigasiManager:
                 font_size: "14sp"
                 background_normal: ""
                 background_color: 0.18, 0.52, 0.38, 1
-                on_release: root.manager.current = "direct_sales"
+                on_release: root.manager.current = "cashier"
 
             Button:
-                text: "PESANAN ONLINE"
+                text: "PESANAN ONLINE" if root.new_online_orders == "0" else "PESANAN ONLINE • " + root.new_online_orders + " BARU"
                 size_hint_y: None
                 height: dp(50)
                 font_size: "14sp"
@@ -262,6 +263,128 @@ NavigasiManager:
                 on_release: root.manager.current = "profile"
 
 
+<CashierScreen>:
+    name: "cashier"
+
+    BoxLayout:
+        orientation: "vertical"
+        padding: dp(12)
+        spacing: dp(8)
+
+        canvas.before:
+            Color:
+                rgba: 0.95, 0.99, 0.96, 1
+            Rectangle:
+                pos: self.pos
+                size: self.size
+
+        Label:
+            text: "KASIR • PEMBELIAN LANGSUNG"
+            font_size: "21sp"
+            bold: True
+            color: 0.12, 0.35, 0.25, 1
+            size_hint_y: None
+            height: dp(42)
+
+        BoxLayout:
+            size_hint_y: None
+            height: dp(44)
+            spacing: dp(6)
+
+            Spinner:
+                id: product_spinner
+                text: "Pilih produk"
+                values: []
+
+            Button:
+                id: add_product_button
+                text: "TAMBAH"
+                size_hint_x: None
+                width: dp(92)
+                background_normal: ""
+                background_color: 0.18, 0.52, 0.38, 1
+                on_release: root.add_selected_product()
+
+        ScrollView:
+            do_scroll_x: False
+            bar_width: dp(4)
+
+            GridLayout:
+                id: cart_list
+                cols: 1
+                spacing: dp(5)
+                size_hint_y: None
+                height: self.minimum_height
+
+        Label:
+            text: "TOTAL: " + root.total_text
+            font_size: "22sp"
+            bold: True
+            color: 0.12, 0.35, 0.25, 1
+            size_hint_y: None
+            height: dp(42)
+
+        TextInput:
+            id: customer_input
+            hint_text: "Nama pelanggan (opsional)"
+            multiline: False
+            size_hint_y: None
+            height: dp(42)
+
+        Spinner:
+            id: payment_spinner
+            text: "Cash"
+            values: ["Cash", "QRIS"]
+            size_hint_y: None
+            height: dp(42)
+
+        BoxLayout:
+            id: cash_received_row
+            size_hint_y: None
+            height: dp(42)
+
+            TextInput:
+                id: cash_received
+                hint_text: "Uang diterima"
+                multiline: False
+                input_filter: "int"
+                on_text: root.update_change()
+
+        Label:
+            text: root.change_text
+            size_hint_y: None
+            height: dp(30)
+            color: 0.12, 0.35, 0.25, 1
+
+        Label:
+            id: cashier_message
+            text: ""
+            size_hint_y: None
+            height: dp(36)
+            color: 0.55, 0.18, 0.12, 1
+
+        Button:
+            text: root.payment_button_text
+            size_hint_y: None
+            height: dp(48)
+            background_normal: ""
+            background_color: 0.18, 0.52, 0.38, 1
+            on_release: root.request_payment()
+
+        BoxLayout:
+            size_hint_y: None
+            height: dp(44)
+            spacing: dp(8)
+
+            Button:
+                text: "RIWAYAT TRANSAKSI"
+                on_release: root.manager.current = "direct_sales"
+
+            Button:
+                text: "DASHBOARD"
+                on_release: root.manager.current = "dashboard"
+
+
 <ProductsScreen>:
     name: "products"
 
@@ -269,6 +392,13 @@ NavigasiManager:
         orientation: "vertical"
         padding: dp(12)
         spacing: dp(8)
+
+        canvas.before:
+            Color:
+                rgba: 0.96, 0.99, 0.97, 1
+            Rectangle:
+                pos: self.pos
+                size: self.size
 
         Label:
             text: "DAFTAR PRODUK"
@@ -406,7 +536,7 @@ NavigasiManager:
             spacing: dp(5)
 
             Button:
-                text: "CATAT PESANAN" if root.channel == "online" else "CATAT TRANSAKSI"
+                text: "CATAT PESANAN ONLINE" if root.channel == "online" else "BUKA KASIR POS"
                 opacity: 0 if root.manages_returns else 1
                 disabled: root.manages_returns
                 size_hint_y: None
@@ -414,7 +544,7 @@ NavigasiManager:
                 background_normal: ""
                 background_color: 0.25, 0.55, 0.4, 1
                 font_size: "13sp"
-                on_release: root.create_order_form()
+                on_release: root.create_order_form() if root.channel == "online" else root.open_pos()
 
             BoxLayout:
                 size_hint_y: None

@@ -27,10 +27,13 @@ from database import (
     create_tables,
     get_products,
     get_order_count,
+    get_new_online_order_count,
     add_product,
     update_product,
     add_order,
     get_orders,
+    get_order_metadata,
+    update_order_status,
     get_financial_summary,
     get_channel_financial_summary,
     get_order_items,
@@ -96,6 +99,7 @@ class DashboardScreen(Screen):
     total_products = StringProperty("0")
     total_stock = StringProperty("0")
     total_orders = StringProperty("0")
+    new_online_orders = StringProperty("0")
     total_direct = StringProperty("0")
     cart_count = StringProperty("0")
     catalog_message = StringProperty("")
@@ -118,6 +122,7 @@ class DashboardScreen(Screen):
 
             self.total_stock = str(total_stock)
             self.total_orders = str(get_order_count("online"))
+            self.new_online_orders = str(get_new_online_order_count())
             self.total_direct = str(get_order_count("direct"))
 
         except Exception as error:
@@ -125,6 +130,7 @@ class DashboardScreen(Screen):
             self.total_products = "0"
             self.total_stock = "0"
             self.total_orders = "0"
+            self.new_online_orders = "0"
             self.total_direct = "0"
 
     def load_catalog(self, products):
@@ -237,10 +243,52 @@ class CashierScreen(Screen):
     total_text = StringProperty("Rp0")
     change_text = StringProperty("Kembalian: Rp0")
     payment_method = StringProperty("Cash")
-    payment_destination_hint = StringProperty("Tidak diperlukan untuk tunai")
-    payment_destination_label = StringProperty("Tujuan pembayaran")
+    payment_button_text = StringProperty("KONFIRMASI PEMBAYARAN")
 
     def on_pre_enter(self, *args):
+        self.refresh_product_options()
+        if not getattr(self, "_payment_spinner_bound", False):
+            self.ids.payment_spinner.bind(
+                text=lambda spinner, value: self.select_payment(value)
+            )
+            self._payment_spinner_bound = True
+        self.select_payment(self.ids.payment_spinner.text)
+        self.refresh_cashier()
+
+    def refresh_product_options(self):
+        products = get_products()
+        self.product_options = {
+            (
+                f"#{product[0]} - {product[1]} | "
+                f"Rp{int(product[3]):,} | stok {product[5] or 0}"
+            ): product
+            for product in products
+        }
+        self.ids.product_spinner.values = list(self.product_options)
+        self.ids.product_spinner.text = (
+            next(iter(self.product_options), "Belum ada produk")
+        )
+        self.ids.add_product_button.disabled = not self.product_options
+
+    def add_selected_product(self):
+        product = self.product_options.get(self.ids.product_spinner.text)
+        if product is None:
+            self.ids.cashier_message.text = "Pilih produk yang tersedia."
+            return
+        product_id = product[0]
+        item = self.manager.cart_items.get(product_id)
+        current_quantity = item["quantity"] if item else 0
+        if current_quantity >= int(product[5] or 0):
+            self.ids.cashier_message.text = f"Stok {product[1]} tidak mencukupi."
+            return
+        if item:
+            item["quantity"] += 1
+        else:
+            self.manager.cart_items[product_id] = {
+                "product": product,
+                "quantity": 1,
+            }
+        self.ids.cashier_message.text = ""
         self.refresh_cashier()
 
     def refresh_cashier(self):
@@ -299,7 +347,7 @@ class CashierScreen(Screen):
 
         if not self.manager.cart_items:
             cart_list.add_widget(Label(
-                text="Keranjang masih kosong. Tambahkan produk dari beranda.",
+                text="Keranjang kosong. Pilih produk dari katalog di atas.",
                 size_hint_y=None,
                 height=dp(55),
                 color=(0.42, 0.48, 0.43, 1)
@@ -348,20 +396,84 @@ class CashierScreen(Screen):
     def select_payment(self, method):
         self.payment_method = method
         is_cash = method == "Cash"
-        self.ids.payment_destination_row.height = 0 if is_cash else dp(64)
+        self.payment_button_text = (
+            "KONFIRMASI PEMBAYARAN"
+            if is_cash
+            else "TAMPILKAN QRIS SIMULASI"
+        )
         self.ids.cash_received_row.height = dp(42) if is_cash else 0
-        self.ids.payment_destination.text = ""
-        if method == "QRIS":
-            self.payment_destination_label = "Tujuan QRIS"
-            self.payment_destination_hint = "Nama merchant atau ID QRIS"
-        elif method == "Debit":
-            self.payment_destination_label = "Tujuan Debit"
-            self.payment_destination_hint = "Nama bank dan rekening / mesin EDC"
-        else:
-            self.payment_destination_label = "Tujuan pembayaran"
-            self.payment_destination_hint = "Tidak diperlukan untuk tunai"
-        self.ids.cash_received.disabled = not is_cash
         self.update_change()
+
+    def request_payment(self):
+        if not self.manager.cart_items:
+            self.ids.cashier_message.text = "Keranjang masih kosong"
+            return
+        if self.payment_method == "QRIS":
+            self.show_qris_simulation()
+        else:
+            self.complete_sale()
+
+    def show_qris_simulation(self):
+        content = BoxLayout(
+            orientation="vertical",
+            spacing=dp(12),
+            padding=dp(16),
+        )
+        with content.canvas.before:
+            Color(1, 1, 1, 1)
+            content.background = Rectangle(pos=content.pos, size=content.size)
+        content.bind(
+            pos=lambda widget, value: setattr(widget.background, "pos", value),
+            size=lambda widget, value: setattr(widget.background, "size", value),
+        )
+        content.add_widget(Label(
+            text="QRIS • SIMULASI",
+            size_hint_y=None,
+            height=dp(40),
+            font_size="20sp",
+            bold=True,
+            color=(0.12, 0.35, 0.25, 1),
+        ))
+        content.add_widget(Label(
+            text=f"Total tagihan\n{self.total_text}",
+            size_hint_y=None,
+            height=dp(80),
+            font_size="24sp",
+            bold=True,
+            color=(0.12, 0.25, 0.18, 1),
+        ))
+        content.add_widget(Label(
+            text=(
+                "Mode demo: pembayaran tidak dikirim ke DANA, ShopeePay, "
+                "bank, atau gateway. Tidak ada kode yang dapat dipindai."
+            ),
+            halign="center",
+            valign="middle",
+            text_size=(dp(340), None),
+            color=(0.42, 0.35, 0.18, 1),
+        ))
+        popup = Popup(
+            title="Pembayaran QRIS Simulasi",
+            content=content,
+            size_hint=(0.9, 0.6),
+        )
+        actions = BoxLayout(size_hint_y=None, height=dp(48), spacing=dp(8))
+        actions.add_widget(Button(
+            text="Simulasikan berhasil",
+            background_normal="",
+            background_color=(0.18, 0.52, 0.38, 1),
+            on_release=lambda button: self.finish_qris_simulation(popup),
+        ))
+        actions.add_widget(Button(
+            text="Batal",
+            on_release=lambda button: popup.dismiss(),
+        ))
+        content.add_widget(actions)
+        popup.open()
+
+    def finish_qris_simulation(self, popup):
+        popup.dismiss()
+        self.complete_sale(qris_confirmed=True)
 
     def show_receipt(self, receipt_text):
         content = BoxLayout(orientation="vertical", spacing=dp(8), padding=dp(12))
@@ -390,7 +502,11 @@ class CashierScreen(Screen):
         receipt_label.bind(texture_size=lambda label, size: setattr(label, "height", size[1]))
         scroll.add_widget(receipt_label)
         content.add_widget(scroll)
-        popup = Popup(title="Nota Pembayaran", content=content, size_hint=(0.92, 0.82))
+        popup = Popup(
+            title="Pembayaran Telah Berhasil",
+            content=content,
+            size_hint=(0.92, 0.82),
+        )
         content.add_widget(Button(
             text="Tutup Nota",
             size_hint_y=None,
@@ -401,28 +517,28 @@ class CashierScreen(Screen):
         ))
         popup.open()
 
-    def complete_sale(self):
+    def complete_sale(self, qris_confirmed=False):
         if not self.manager.cart_items:
             self.ids.cashier_message.text = "Keranjang masih kosong"
             return
 
         customer_name = self.ids.customer_input.text.strip() or "Pelanggan umum"
         payment = self.payment_method
-        status = self.ids.status_spinner.text
-        destination = self.ids.payment_destination.text.strip()
-        if payment != "Cash" and not destination:
-            self.ids.cashier_message.text = f"Isi tujuan pembayaran {payment} terlebih dahulu"
+        if payment == "QRIS" and not qris_confirmed:
+            self.show_qris_simulation()
             return
-        payment_record = f"{payment} - {destination}" if destination else payment
-        try:
-            received = int(self.ids.cash_received.text or 0)
-        except ValueError:
-            self.ids.cashier_message.text = "Nominal uang diterima harus berupa angka"
-            return
-
-        if payment == "Cash" and status == "Lunas" and received < self.total_amount:
-            self.ids.cashier_message.text = "Uang diterima masih kurang dari total belanja"
-            return
+        status = "Lunas"
+        payment_record = "QRIS (simulasi)" if payment == "QRIS" else "Cash"
+        received = 0
+        if payment == "Cash":
+            try:
+                received = int(self.ids.cash_received.text or 0)
+            except ValueError:
+                self.ids.cashier_message.text = "Nominal uang diterima harus berupa angka"
+                return
+            if received < self.total_amount:
+                self.ids.cashier_message.text = "Uang diterima masih kurang dari total belanja"
+                return
 
         latest_products = {product[0]: product for product in get_products()}
         for product_id, item in self.manager.cart_items.items():
@@ -437,6 +553,7 @@ class CashierScreen(Screen):
         sale_items = []
         receipt_lines = [
             "EARTHGLOW SOAP",
+            "PEMBAYARAN TELAH BERHASIL",
             "NOTA PEMBAYARAN",
             datetime.now().strftime("Tanggal: %d-%m-%Y %H:%M"),
             f"Pelanggan: {customer_name}",
@@ -491,7 +608,7 @@ class CashierScreen(Screen):
         self.manager.cart_items.clear()
         self.ids.customer_input.text = ""
         self.ids.cash_received.text = ""
-        self.ids.payment_destination.text = ""
+        self.ids.payment_spinner.text = "Cash"
         self.ids.cashier_message.text = "Transaksi berhasil disimpan"
         self.refresh_cashier()
         self.manager.get_screen("dashboard").refresh_dashboard()
@@ -532,36 +649,69 @@ class ProductsScreen(Screen):
 
             text = (
                 f"ID: {product_id}\n"
-                f"{name} | Brand: {brand}\n"
-                f"Harga: Rp{price:,} | HPP: {cost_text} | Stok: {stock}"
+                f"{name}\n"
+                f"Merek: {brand}\n"
+                f"Harga: Rp{price:,} | HPP: {cost_text}\n"
+                f"Stok: {stock}"
             )
 
-            row = BoxLayout(size_hint_y=None, height=dp(104), spacing=dp(8))
+            row = BoxLayout(
+                size_hint_y=None,
+                height=dp(196),
+                spacing=dp(12),
+                padding=(dp(8), dp(8)),
+            )
+            with row.canvas.before:
+                Color(1, 1, 1, 1)
+                row.background = Rectangle(pos=row.pos, size=row.size)
+                Color(0.75, 0.82, 0.77, 1)
+                row.border = Line(rectangle=(*row.pos, *row.size), width=1)
+            row.bind(
+                pos=lambda widget, value: (
+                    setattr(widget.background, "pos", value),
+                    setattr(widget.border, "rectangle", (*widget.pos, *widget.size)),
+                ),
+                size=lambda widget, value: (
+                    setattr(widget.background, "size", value),
+                    setattr(widget.border, "rectangle", (*widget.pos, *widget.size)),
+                ),
+            )
             if image_path and os.path.isfile(image_path):
                 row.add_widget(Image(
                     source=image_path,
                     size_hint_x=None,
-                    width=dp(64),
+                    size_hint_y=None,
+                    width=dp(150),
+                    height=dp(176),
                     fit_mode="contain",
                 ))
             else:
                 row.add_widget(Label(
                     text="Tanpa foto",
                     size_hint_x=None,
-                    width=dp(64),
-                    font_size="11sp",
+                    size_hint_y=None,
+                    width=dp(150),
+                    height=dp(176),
+                    font_size="13sp",
+                    color=(0.42, 0.48, 0.43, 1),
                 ))
-            row.add_widget(Label(
+            product_details = Label(
                 text=text,
                 halign="left",
                 valign="middle",
-                text_size=(self.width * 0.58, None),
-                font_size="13sp",
-            ))
+                font_size="14sp",
+                color=(0.12, 0.25, 0.18, 1),
+            )
+            product_details.bind(
+                width=lambda label, width: setattr(label, "text_size", (width, None))
+            )
+            row.add_widget(product_details)
             row.add_widget(Button(
                 text="Edit",
                 size_hint_x=None,
-                width=dp(64),
+                size_hint_y=None,
+                width=dp(80),
+                height=dp(48),
                 on_release=lambda button, item=product: self.open_product_form(item)
             ))
             self.ids.product_list.add_widget(row)
@@ -834,20 +984,134 @@ class ChannelTransactionsScreen(Screen):
                     ("Pembayaran", payment or "Cash"),
                     ("Status", status or "Belum Lunas"),
                 ]
+                if order[10] == "online" and not self.manages_returns:
+                    platform_name, buyer_note = get_order_metadata(order_id)
+                    fields.extend([
+                        ("Platform", platform_name or "Web / Manual"),
+                        ("Catatan pembeli", buyer_note or "-"),
+                    ])
                 action_callback = None
                 action_text = None
                 if self.manages_returns:
                     action_text = "PROSES RETUR"
                     action_callback = lambda button, order=order: self.open_return_form(order)
+                elif self.channel == "online":
+                    if status == "Baru":
+                        action_text = "TERIMA & PROSES"
+                        action_callback = lambda button, order=order: self.advance_online_order(
+                            order, "Baru", "Diproses"
+                        )
+                    elif status == "Diproses":
+                        action_text = "PESANAN SIAP"
+                        action_callback = lambda button, order=order: self.advance_online_order(
+                            order, "Diproses", "Siap"
+                        )
+                    elif status == "Siap":
+                        action_text = "SELESAIKAN & TAMPILKAN LABEL"
+                        action_callback = lambda button, order=order: self.advance_online_order(
+                            order, "Siap", "Lunas"
+                        )
+                    elif status == "Lunas":
+                        action_text = "LIHAT STRUK / LABEL (SIMULASI)"
+                        action_callback = lambda button, order=order: self.show_online_label(order)
                 self.add_record_card(
                     table,
                     fields,
                     action_text,
                     action_callback,
-                    action_disabled=status != "Lunas",
+                    action_disabled=self.manages_returns and status != "Lunas",
                 )
         if self.manages_returns:
             self.load_return_history()
+
+    def advance_online_order(self, order, expected_status, new_status):
+        try:
+            update_order_status(order[0], expected_status, new_status, "online")
+        except ValueError as error:
+            self.ids.channel_message.text = str(error)
+            self.load_orders()
+            return
+
+        if new_status == "Diproses":
+            self.ids.channel_message.text = (
+                "Pesanan diterima. Diteruskan ke persiapan (simulasi)."
+            )
+        elif new_status == "Siap":
+            self.ids.channel_message.text = "Pesanan ditandai siap diambil / diserahkan."
+        else:
+            self.ids.channel_message.text = "Pesanan selesai dan tercatat lunas."
+        self.load_orders()
+        self.manager.get_screen("dashboard").refresh_dashboard()
+        if new_status == "Lunas":
+            self.show_online_label(order)
+
+    def open_pos(self):
+        self.manager.current = "cashier"
+
+    def show_online_label(self, order):
+        order_id, customer, address, product, quantity, total = order[:6]
+        platform_name, buyer_note = get_order_metadata(order_id)
+        items = get_order_items(order_id)
+        item_lines = [
+            f"{item[2]} x{item[3]}"
+            for item in items
+        ] or [f"{product or '-'} x{quantity or 0}"]
+        label_text = "\n".join([
+            "EARTHGLOW SOAP",
+            "STRUK / LABEL PESANAN ONLINE",
+            f"No. pesanan: {order_id}",
+            f"Platform: {platform_name or 'Web / Manual'}",
+            f"Pelanggan: {customer or '-'}",
+            f"Alamat: {address or '-'}",
+            "Barang:",
+            *item_lines,
+            f"Total: Rp{total:,}",
+            f"Pembayaran: Sudah dibayar online",
+            f"Catatan: {buyer_note or '-'}",
+            "",
+            "SIMULASI CETAK - tidak dikirim ke printer atau kurir.",
+        ])
+        content = BoxLayout(
+            orientation="vertical",
+            spacing=dp(8),
+            padding=dp(12),
+        )
+        with content.canvas.before:
+            Color(1, 1, 1, 1)
+            content.background = Rectangle(pos=content.pos, size=content.size)
+        content.bind(
+            pos=lambda widget, value: setattr(widget.background, "pos", value),
+            size=lambda widget, value: setattr(widget.background, "size", value),
+        )
+        scroll = ScrollView(do_scroll_x=False)
+        label = Label(
+            text=label_text,
+            size_hint_y=None,
+            halign="left",
+            valign="top",
+            font_size="15sp",
+            color=(0.12, 0.2, 0.15, 1),
+        )
+        label.bind(
+            width=lambda widget, width: setattr(widget, "text_size", (width, None))
+        )
+        label.bind(
+            texture_size=lambda widget, size: setattr(widget, "height", size[1])
+        )
+        scroll.add_widget(label)
+        content.add_widget(scroll)
+        popup = Popup(
+            title="Pratinjau Label Simulasi",
+            content=content,
+            size_hint=(0.92, 0.78),
+        )
+        content.add_widget(Button(
+            text="Tutup",
+            size_hint_y=None,
+            height=dp(44),
+            on_release=lambda button: popup.dismiss(),
+        ))
+        popup.open()
 
     def create_order_form(self):
         if self.manages_returns:
@@ -856,9 +1120,14 @@ class ChannelTransactionsScreen(Screen):
         if not products:
             self.ids.channel_message.text = "Tambahkan produk terlebih dahulu."
             return
+        is_online = self.channel == "online"
         form = BoxLayout(orientation="vertical", padding=dp(12), spacing=dp(7))
         form.add_widget(Label(
-            text="Pilih produk dan jumlah. Stok akan berkurang otomatis.",
+            text=(
+                "Mode simulasi: pesanan online dicatat manual."
+                if is_online
+                else "Pilih produk dan jumlah. Stok akan berkurang otomatis."
+            ),
             size_hint_y=None,
             height=dp(38),
         ))
@@ -891,9 +1160,21 @@ class ChannelTransactionsScreen(Screen):
             size_hint_y=None,
             height=dp(44),
         )
+        platform_spinner = Spinner(
+            text="GoFood",
+            values=["GoFood", "GrabFood", "ShopeeFood", "Web / Manual"],
+            size_hint_y=None,
+            height=dp(44),
+        )
+        buyer_note_input = TextInput(
+            hint_text="Catatan pembeli (opsional)",
+            multiline=True,
+            size_hint_y=None,
+            height=dp(68),
+        )
         payment_spinner = Spinner(
             text="Cash",
-            values=["Cash", "QRIS", "Debit", "Transfer"],
+            values=["Cash", "QRIS"],
             size_hint_y=None,
             height=dp(44),
         )
@@ -904,15 +1185,18 @@ class ChannelTransactionsScreen(Screen):
             height=dp(44),
         )
         message = Label(text="", size_hint_y=None, height=dp(44))
-        for widget in (
+        form_widgets = [
             product_spinner,
             customer_input,
             address_input,
             quantity_input,
-            payment_spinner,
-            status_spinner,
-            message,
-        ):
+        ]
+        if is_online:
+            form_widgets.extend((platform_spinner, buyer_note_input))
+        else:
+            form_widgets.extend((payment_spinner, status_spinner))
+        form_widgets.append(message)
+        for widget in form_widgets:
             form.add_widget(widget)
 
         popup = Popup(
@@ -938,14 +1222,16 @@ class ChannelTransactionsScreen(Screen):
                 address = address_input.text.strip() or "-"
                 total = int(product[3]) * quantity
                 cost_total = int(product[7]) * quantity
+                payment = "Sudah Dibayar (Online)" if is_online else payment_spinner.text
+                order_status = "Baru" if is_online else status_spinner.text
                 add_order(
                     customer,
                     address,
                     product[1],
                     quantity,
                     total,
-                    payment_spinner.text,
-                    status_spinner.text,
+                    payment,
+                    order_status,
                     cost_total,
                     self.channel,
                     [{
@@ -955,12 +1241,18 @@ class ChannelTransactionsScreen(Screen):
                         "unit_price": int(product[3]),
                         "unit_cost": int(product[7]),
                     }],
+                    platform=platform_spinner.text if is_online else None,
+                    buyer_note=buyer_note_input.text.strip() if is_online else "",
                 )
             except (ValueError, KeyError) as error:
                 message.text = str(error) or "Jumlah tidak valid."
                 return
             popup.dismiss()
-            self.ids.channel_message.text = "Transaksi berhasil dicatat dan stok diperbarui."
+            self.ids.channel_message.text = (
+                "Pesanan baru dicatat sebagai sudah dibayar online."
+                if is_online
+                else "Transaksi berhasil dicatat dan stok diperbarui."
+            )
             self.load_orders()
 
         actions.add_widget(Button(text="Simpan transaksi", on_release=save_order))

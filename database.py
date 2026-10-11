@@ -47,6 +47,9 @@ def create_tables():
             payment_method TEXT DEFAULT 'Cash',
             status TEXT DEFAULT 'Belum Lunas',
             channel TEXT NOT NULL DEFAULT 'online',
+            platform TEXT,
+            buyer_note TEXT,
+            completed_at TEXT,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
     """)
@@ -103,6 +106,13 @@ def create_tables():
 
     cursor.execute("PRAGMA table_info(orders)")
     order_columns = {row[1] for row in cursor.fetchall()}
+    for column_name, default_sql in {
+        "platform": "ALTER TABLE orders ADD COLUMN platform TEXT",
+        "buyer_note": "ALTER TABLE orders ADD COLUMN buyer_note TEXT",
+        "completed_at": "ALTER TABLE orders ADD COLUMN completed_at TEXT",
+    }.items():
+        if column_name not in order_columns:
+            cursor.execute(default_sql)
 
     cursor.execute("PRAGMA table_info(products)")
     product_columns = {row[1] for row in cursor.fetchall()}
@@ -133,6 +143,10 @@ def create_tables():
     )
     cursor.execute(
         "UPDATE orders SET status = 'Belum Lunas' WHERE status IS NULL OR status = ''"
+    )
+    cursor.execute(
+        "UPDATE orders SET completed_at = created_at "
+        "WHERE status = 'Lunas' AND completed_at IS NULL"
     )
 
     conn.commit()
@@ -168,6 +182,17 @@ def get_order_count(channel=None):
     return result
 
 
+def get_new_online_order_count():
+    conn = connect_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT COUNT(*) FROM orders WHERE channel = 'online' AND status = 'Baru'"
+    )
+    result = cursor.fetchone()[0]
+    conn.close()
+    return result
+
+
 def get_orders(channel=None):
     conn = connect_db()
     cursor = conn.cursor()
@@ -187,6 +212,62 @@ def get_orders(channel=None):
     return data
 
 
+def get_order_metadata(order_id):
+    conn = connect_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT platform, buyer_note FROM orders WHERE id = ?",
+        (order_id,),
+    )
+    metadata = cursor.fetchone()
+    conn.close()
+    if metadata is None:
+        raise ValueError("Pesanan tidak ditemukan.")
+    return metadata
+
+
+def update_order_status(order_id, expected_status, new_status, channel="online"):
+    transitions = {
+        "Baru": "Diproses",
+        "Diproses": "Siap",
+        "Siap": "Lunas",
+    }
+    if transitions.get(expected_status) != new_status:
+        raise ValueError("Perubahan status pesanan tidak valid.")
+
+    conn = connect_db()
+    cursor = conn.cursor()
+    cursor.execute("BEGIN IMMEDIATE")
+    cursor.execute(
+        "SELECT status FROM orders WHERE id = ? AND channel = ?",
+        (order_id, channel),
+    )
+    current = cursor.fetchone()
+    if current is None:
+        conn.rollback()
+        conn.close()
+        raise ValueError("Pesanan tidak ditemukan.")
+    if current[0] != expected_status:
+        conn.rollback()
+        conn.close()
+        raise ValueError("Status pesanan sudah berubah. Muat ulang daftar pesanan.")
+    cursor.execute(
+        (
+            "UPDATE orders SET status = ?, completed_at = "
+            "CASE WHEN ? = 'Lunas' THEN datetime('now', 'localtime') "
+            "ELSE completed_at END "
+            "WHERE id = ? AND channel = ? AND status = ?"
+        ),
+        (new_status, new_status, order_id, channel, expected_status),
+    )
+    if cursor.rowcount != 1:
+        conn.rollback()
+        conn.close()
+        raise ValueError("Status pesanan gagal diperbarui.")
+    conn.commit()
+    conn.close()
+
+
 def add_order(
     customer_name,
     customer_address,
@@ -198,6 +279,8 @@ def add_order(
     cost_total=None,
     channel='online',
     items=None,
+    platform=None,
+    buyer_note="",
 ):
     conn = connect_db()
     cursor = conn.cursor()
@@ -213,8 +296,16 @@ def add_order(
             conn.close()
             raise ValueError(f"Stok {item['product_name']} tidak mencukupi.")
     cursor.execute("""
-        INSERT INTO orders (customer_name, customer_address, product_name, quantity, total, cost_total, payment_method, status, channel, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))
+        INSERT INTO orders (
+            customer_name, customer_address, product_name, quantity, total,
+            cost_total, payment_method, status, channel, platform, buyer_note,
+            completed_at, created_at
+        )
+        VALUES (
+            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+            CASE WHEN ? = 'Lunas' THEN datetime('now', 'localtime') ELSE NULL END,
+            datetime('now', 'localtime')
+        )
     """, (
         customer_name,
         customer_address,
@@ -225,6 +316,9 @@ def add_order(
         payment_method,
         status,
         channel,
+        platform,
+        buyer_note,
+        status,
     ))
     order_id = cursor.lastrowid
     for item in items or ():
@@ -487,7 +581,7 @@ def get_financial_summary():
         SELECT COALESCE(SUM(total), 0)
         FROM orders
         WHERE status = 'Lunas'
-          AND date(created_at) = date('now', 'localtime')
+          AND date(COALESCE(completed_at, created_at)) = date('now', 'localtime')
     """)
     today_revenue = cursor.fetchone()[0]
     conn.close()

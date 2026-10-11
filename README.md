@@ -66,6 +66,26 @@ transaksi langsung serta pesanan online. Excel menghitung ulang saat berkas
 dibuka. Laba yang ditampilkan adalah laba kotor (omzet dikurangi HPP), belum
 dikurangi biaya operasional lain.
 
+## Alur Pesanan dan Pembayaran (Mode Simulasi)
+
+Pesanan online dicatat manual dengan memilih platform, produk, pelanggan,
+alamat, dan catatan. Pesanan dimulai dengan status **Baru** dan pembayaran
+**Sudah Dibayar (Online)**. Kasir dapat mengubah status secara berurutan:
+**Baru → Diproses → Siap → Lunas**. Saat pesanan diselesaikan, aplikasi
+menampilkan pratinjau struk/label simulasi. Pesanan baru ditandai pada tombol
+Pesanan Online di dashboard.
+
+Pembelian langsung dibuka melalui layar kasir. Produk dipilih manual dari
+katalog, lalu jumlah dan total belanja dihitung. Pembayaran **Cash**
+memvalidasi uang diterima dan menghitung kembalian. Pilihan **QRIS** membuka
+konfirmasi pembayaran simulasi dengan total tagihan; kasir menekan
+**Simulasikan berhasil** untuk menyelesaikan transaksi.
+
+Mode ini belum terhubung ke GoFood, GrabFood, ShopeeFood, DANA, ShopeePay,
+gateway pembayaran, dapur, kurir, pemindai barcode, atau printer. QRIS simulasi
+tidak menampilkan kode yang dapat dipindai; struk dan label hanya pratinjau di
+layar.
+
 ## Cara Mengembangkan Lebih Lanjut
 
 - Tambahkan gambar produk asli di folder `assets/` lalu tampilkan dengan widget `Image` di `navigasi.kv`.
