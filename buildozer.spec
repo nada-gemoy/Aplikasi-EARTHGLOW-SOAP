@@ -12,6 +12,7 @@ fullscreen = 0
 
 android.api = 35
 android.minapi = 23
+android.ndk = 25b
 android.archs = arm64-v8a
 android.permissions = READ_EXTERNAL_STORAGE,READ_MEDIA_IMAGES
 android.accept_sdk_license = True
