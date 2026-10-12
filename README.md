@@ -97,7 +97,8 @@ branch `main`.
 
 Build pertama mengunduh Android SDK/NDK dan bisa memerlukan waktu cukup lama.
 Di Windows, jalankan Buildozer melalui Linux/WSL; workflow GitHub menggunakan
-runner Ubuntu. Database disimpan pada penyimpanan privat aplikasi Android.
+runner Ubuntu. APK mendukung Android 7.0 (API 24) ke atas. Database disimpan
+pada penyimpanan privat aplikasi Android.
 Laporan Excel Android juga disimpan di penyimpanan privat aplikasi, sedangkan
 cetak langsung belum didukung di Android.
 
