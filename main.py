@@ -5,6 +5,7 @@ from datetime import datetime
 
 from kivy.app import App
 from kivy.core.window import Window
+from kivy.clock import Clock
 from kivy.graphics import Color, Line, Rectangle
 from kivy.lang import Builder
 from kivy.metrics import dp
@@ -49,13 +50,149 @@ class ProductPhoto(ButtonBehavior, Image):
     pass
 
 
-def open_image_picker(on_select):
-    def show_picker():
-        initial_path = (
-            "/storage/emulated/0"
-            if platform == "android"
-            else os.path.expanduser("~")
+_IMAGE_PICKER_REQUEST_CODE = 7823
+_pending_image_selection = None
+_image_picker_bound = False
+
+
+def _handle_image_picker_result(request_code, result_code, intent):
+    global _pending_image_selection
+    if request_code != _IMAGE_PICKER_REQUEST_CODE:
+        return
+
+    callback = _pending_image_selection
+    _pending_image_selection = None
+    if callback is None or result_code != -1 or intent is None:
+        return
+
+    try:
+        image_path = _copy_android_image(intent.getData())
+    except Exception as error:
+        error_message = f"Gagal membaca foto: {error}"
+        Clock.schedule_once(
+            lambda dt: callback(None, error_message)
         )
+        return
+
+    Clock.schedule_once(lambda dt: callback(image_path, ""))
+
+
+def _copy_android_image(uri):
+    if uri is None:
+        raise ValueError("Foto tidak dipilih.")
+
+    from jnius import autoclass
+
+    activity = autoclass("org.kivy.android.PythonActivity").mActivity
+    resolver = activity.getContentResolver()
+    stream = resolver.openInputStream(uri)
+    if stream is None:
+        raise OSError("Foto tidak dapat dibuka.")
+
+    bitmap_factory = autoclass("android.graphics.BitmapFactory")
+    bitmap_options = autoclass("android.graphics.BitmapFactory$Options")
+    options = bitmap_options()
+    options.inJustDecodeBounds = True
+    try:
+        bitmap_factory.decodeStream(stream, None, options)
+    finally:
+        stream.close()
+
+    max_dimension = 1600
+    sample_size = 1
+    while max(options.outWidth, options.outHeight) // sample_size > max_dimension * 2:
+        sample_size *= 2
+    options.inSampleSize = sample_size
+    options.inJustDecodeBounds = False
+    stream = resolver.openInputStream(uri)
+    if stream is None:
+        raise OSError("Foto tidak dapat dibuka.")
+    try:
+        bitmap = bitmap_factory.decodeStream(stream, None, options)
+    finally:
+        stream.close()
+
+    if bitmap is None:
+        raise ValueError("Format foto tidak didukung.")
+
+    output_stream = None
+    output_path = ""
+    width = bitmap.getWidth()
+    height = bitmap.getHeight()
+    if max(width, height) > max_dimension:
+        scale = max_dimension / max(width, height)
+        scaled_bitmap = autoclass("android.graphics.Bitmap").createScaledBitmap(
+            bitmap,
+            max(1, int(width * scale)),
+            max(1, int(height * scale)),
+            True,
+        )
+        bitmap.recycle()
+        bitmap = scaled_bitmap
+
+    app_data_dir = App.get_running_app().user_data_dir
+    os.makedirs(app_data_dir, exist_ok=True)
+    file_descriptor, output_path = tempfile.mkstemp(
+        prefix="earthglow_photo_",
+        suffix=".jpg",
+        dir=app_data_dir,
+    )
+    os.close(file_descriptor)
+    try:
+        output_stream = autoclass("java.io.FileOutputStream")(output_path)
+        compress_format = autoclass("android.graphics.Bitmap$CompressFormat").JPEG
+        if not bitmap.compress(compress_format, 90, output_stream):
+            raise OSError("Foto tidak berhasil disimpan.")
+        output_stream.flush()
+    except Exception:
+        if output_path and os.path.exists(output_path):
+            os.remove(output_path)
+        raise
+    finally:
+        if output_stream is not None:
+            output_stream.close()
+        bitmap.recycle()
+    return output_path
+
+
+def open_image_picker(on_select, on_error=None):
+    if platform == "android":
+        global _pending_image_selection, _image_picker_bound
+        from android import activity
+        from jnius import autoclass
+
+        def handle_selection(image_path, error_message):
+            if error_message:
+                if on_error:
+                    on_error(error_message)
+                else:
+                    print(error_message)
+            elif image_path:
+                on_select(image_path)
+
+        if not _image_picker_bound:
+            activity.bind(on_activity_result=_handle_image_picker_result)
+            _image_picker_bound = True
+        if _pending_image_selection is not None:
+            raise RuntimeError("Pemilih foto sedang digunakan.")
+        _pending_image_selection = handle_selection
+
+        intent_class = autoclass("android.content.Intent")
+        intent = intent_class(intent_class.ACTION_OPEN_DOCUMENT)
+        intent.addCategory(intent_class.CATEGORY_OPENABLE)
+        intent.setType("image/*")
+        try:
+            autoclass("org.kivy.android.PythonActivity").mActivity.startActivityForResult(
+                intent,
+                _IMAGE_PICKER_REQUEST_CODE,
+            )
+        except Exception:
+            _pending_image_selection = None
+            raise
+        return
+
+    def show_picker():
+        initial_path = os.path.expanduser("~")
         chooser = FileChooserIconView(
             path=initial_path,
             filters=["*.png", "*.jpg", "*.jpeg", "*.webp"]
@@ -75,36 +212,18 @@ def open_image_picker(on_select):
         content.add_widget(actions)
         popup.open()
 
-    if platform != "android":
-        show_picker()
-        return
+    show_picker()
 
-    from android.permissions import request_permissions
-    from jnius import autoclass
 
-    android_version = autoclass("android.os.Build$VERSION")
-    permission = (
-        "android.permission.READ_MEDIA_IMAGES"
-        if android_version.SDK_INT >= 33
-        else "android.permission.READ_EXTERNAL_STORAGE"
-    )
-
-    def on_permission_result(permissions, grants):
-        if grants and all(grants):
-            show_picker()
-            return
-        popup = Popup(
-            title="Izin Foto Diperlukan",
-            content=Label(
-                text="Izinkan akses foto di pengaturan Android untuk memilih gambar.",
-                halign="center",
-                valign="middle",
-            ),
-            size_hint=(0.9, 0.35),
-        )
-        popup.open()
-
-    request_permissions([permission], on_permission_result)
+def scrollable_form_content(form, actions):
+    form.size_hint_y = None
+    form.bind(minimum_height=form.setter("height"))
+    scroll = ScrollView(do_scroll_x=False, do_scroll_y=True)
+    scroll.add_widget(form)
+    content = BoxLayout(orientation="vertical", spacing=dp(6))
+    content.add_widget(scroll)
+    content.add_widget(actions)
+    return content
 
 
 class WelcomeScreen(Screen):
@@ -693,10 +812,10 @@ class ProductsScreen(Screen):
             )
 
             row = BoxLayout(
+                orientation="vertical",
                 size_hint_y=None,
-                height=dp(196),
-                spacing=dp(12),
-                padding=(dp(8), dp(8)),
+                padding=dp(10),
+                spacing=dp(6),
             )
             with row.canvas.before:
                 Color(1, 1, 1, 1)
@@ -716,70 +835,106 @@ class ProductsScreen(Screen):
             if image_path and os.path.isfile(image_path):
                 row.add_widget(Image(
                     source=image_path,
-                    size_hint_x=None,
                     size_hint_y=None,
-                    width=dp(150),
-                    height=dp(176),
+                    height=dp(118),
                     fit_mode="contain",
                 ))
             else:
                 row.add_widget(Label(
                     text="Tanpa foto",
-                    size_hint_x=None,
                     size_hint_y=None,
-                    width=dp(150),
-                    height=dp(176),
+                    height=dp(70),
                     font_size="13sp",
                     color=(0.42, 0.48, 0.43, 1),
                 ))
             product_details = Label(
                 text=text,
+                size_hint_y=None,
                 halign="left",
-                valign="middle",
-                font_size="14sp",
+                valign="top",
+                font_size="13sp",
                 color=(0.12, 0.25, 0.18, 1),
             )
             product_details.bind(
-                width=lambda label, width: setattr(label, "text_size", (width, None))
+                width=lambda label, width: setattr(label, "text_size", (width, None)),
+                texture_size=lambda label, size: setattr(
+                    label, "height", size[1] + dp(8)
+                ),
             )
             row.add_widget(product_details)
             row.add_widget(Button(
                 text="Edit",
-                size_hint_x=None,
                 size_hint_y=None,
-                width=dp(80),
-                height=dp(48),
+                height=dp(42),
                 on_release=lambda button, item=product: self.open_product_form(item)
             ))
+            row.bind(minimum_height=row.setter("height"))
             self.ids.product_list.add_widget(row)
 
-    def choose_image(self, image_input):
-        open_image_picker(lambda file_path: setattr(image_input, "text", file_path))
+    def choose_image(self, image_input, message, on_selected):
+        def image_selected(file_path):
+            image_input.text = os.path.basename(file_path)
+            message.text = "Foto berhasil dipilih."
+            on_selected(file_path)
+
+        try:
+            open_image_picker(image_selected, lambda error: setattr(message, "text", error))
+        except Exception as error:
+            message.text = f"Tidak dapat membuka pemilih foto: {error}"
 
     def open_product_form(self, product=None):
         is_edit = product is not None
-        form = BoxLayout(orientation="vertical", padding=15, spacing=8)
-        name_input = TextInput(hint_text="Nama barang", text=product[1] if is_edit else "", multiline=False)
-        brand_input = TextInput(hint_text="Merek", text=product[2] or "" if is_edit else "", multiline=False)
-        price_input = TextInput(hint_text="Harga jual (angka)", text=str(product[3]) if is_edit else "", multiline=False, input_filter="int")
-        cost_input = TextInput(hint_text="HPP / biaya modal per produk (angka)", text=str(product[7]) if is_edit and product[7] is not None else "", multiline=False, input_filter="int")
-        description_input = TextInput(hint_text="Deskripsi", text=product[4] or "" if is_edit else "", multiline=False)
-        stock_input = TextInput(hint_text="Stok", text=str(product[5] or 0) if is_edit else "", multiline=False, input_filter="int")
-        image_input = TextInput(hint_text="Pilih lokasi foto", text=product[6] or "" if is_edit else "", multiline=False, readonly=True, size_hint_x=0.72)
-        message = Label(text="", size_hint_y=None, height=28)
+        form = BoxLayout(
+            orientation="vertical",
+            padding=dp(12),
+            spacing=dp(8),
+            size_hint_y=None,
+        )
+        name_input = TextInput(hint_text="Nama barang", text=product[1] if is_edit else "", multiline=False, size_hint_y=None, height=dp(44))
+        brand_input = TextInput(hint_text="Merek", text=product[2] or "" if is_edit else "", multiline=False, size_hint_y=None, height=dp(44))
+        price_input = TextInput(hint_text="Harga jual (angka)", text=str(product[3]) if is_edit else "", multiline=False, input_filter="int", size_hint_y=None, height=dp(44))
+        cost_input = TextInput(hint_text="HPP / biaya modal per produk (angka)", text=str(product[7]) if is_edit and product[7] is not None else "", multiline=False, input_filter="int", size_hint_y=None, height=dp(44))
+        description_input = TextInput(hint_text="Deskripsi", text=product[4] or "" if is_edit else "", multiline=False, size_hint_y=None, height=dp(44))
+        stock_input = TextInput(hint_text="Stok", text=str(product[5] or 0) if is_edit else "", multiline=False, input_filter="int", size_hint_y=None, height=dp(44))
+        selected_image_path = product[6] or "" if is_edit else ""
+        image_input = TextInput(
+            hint_text="Foto belum dipilih",
+            text=os.path.basename(selected_image_path) or "Belum dipilih",
+            multiline=False,
+            readonly=True,
+            size_hint_x=0.68,
+        )
+        message = Label(text="", size_hint_y=None, height=dp(36), halign="left", valign="middle", text_size=(0, None))
+        message.bind(width=lambda label, width: setattr(label, "text_size", (width, None)))
+
+        def set_product_image(file_path):
+            nonlocal selected_image_path
+            selected_image_path = file_path
+
         form.add_widget(name_input)
         form.add_widget(brand_input)
         form.add_widget(price_input)
         form.add_widget(cost_input)
         form.add_widget(description_input)
         form.add_widget(stock_input)
-        image_row = BoxLayout(size_hint_y=None, height=42, spacing=6)
+        image_row = BoxLayout(size_hint_y=None, height=dp(44), spacing=dp(6))
         image_row.add_widget(image_input)
-        image_row.add_widget(Button(text="Pilih Foto", on_release=lambda button: self.choose_image(image_input)))
+        image_row.add_widget(Button(
+            text="Pilih Foto",
+            on_release=lambda button: self.choose_image(
+                image_input,
+                message,
+                set_product_image,
+            ),
+        ))
         form.add_widget(image_row)
         form.add_widget(message)
-        actions = BoxLayout(size_hint_y=None, height=45, spacing=8)
-        popup = Popup(title="Ubah Barang" if is_edit else "Tambah Barang", content=form, size_hint=(0.88, 0.8))
+        actions = BoxLayout(size_hint_y=None, height=dp(46), spacing=dp(8), padding=(dp(12), 0))
+        popup = Popup(
+            title="Ubah Barang" if is_edit else "Tambah Barang",
+            content=scrollable_form_content(form, actions),
+            size_hint=(0.92, 0.78),
+        )
 
         def save_product(button):
             name = name_input.text.strip()
@@ -798,7 +953,7 @@ class ProductsScreen(Screen):
                     price,
                     description_input.text.strip(),
                     stock,
-                    image_input.text.strip(),
+                    selected_image_path,
                     cost_price
                 )
                 if is_edit:
@@ -812,7 +967,6 @@ class ProductsScreen(Screen):
 
         actions.add_widget(Button(text="Simpan", on_release=save_product))
         actions.add_widget(Button(text="Batal", on_release=lambda button: popup.dismiss()))
-        form.add_widget(actions)
         popup.open()
 
     def open_sale_form(self, product):
@@ -1158,7 +1312,12 @@ class ChannelTransactionsScreen(Screen):
             self.ids.channel_message.text = "Tambahkan produk terlebih dahulu."
             return
         is_online = self.channel == "online"
-        form = BoxLayout(orientation="vertical", padding=dp(12), spacing=dp(7))
+        form = BoxLayout(
+            orientation="vertical",
+            padding=dp(12),
+            spacing=dp(7),
+            size_hint_y=None,
+        )
         form.add_widget(Label(
             text=(
                 "Mode simulasi: pesanan online dicatat manual."
@@ -1221,7 +1380,19 @@ class ChannelTransactionsScreen(Screen):
             size_hint_y=None,
             height=dp(44),
         )
-        message = Label(text="", size_hint_y=None, height=dp(44))
+        message = Label(
+            text="",
+            size_hint_y=None,
+            height=dp(44),
+            halign="left",
+            valign="middle",
+        )
+        message.bind(
+            width=lambda label, width: setattr(label, "text_size", (width, None)),
+            texture_size=lambda label, size: setattr(
+                label, "height", max(dp(44), size[1] + dp(8))
+            ),
+        )
         form_widgets = [
             product_spinner,
             customer_input,
@@ -1236,12 +1407,17 @@ class ChannelTransactionsScreen(Screen):
         for widget in form_widgets:
             form.add_widget(widget)
 
+        actions = BoxLayout(
+            size_hint_y=None,
+            height=dp(44),
+            spacing=dp(8),
+            padding=(dp(12), 0),
+        )
         popup = Popup(
             title="Catat Transaksi Langsung" if self.channel == "direct" else "Tambah Pesanan Online",
-            content=form,
+            content=scrollable_form_content(form, actions),
             size_hint=(0.92, 0.88),
         )
-        actions = BoxLayout(size_hint_y=None, height=dp(44), spacing=dp(8))
 
         def save_order(button):
             try:
@@ -1294,7 +1470,6 @@ class ChannelTransactionsScreen(Screen):
 
         actions.add_widget(Button(text="Simpan transaksi", on_release=save_order))
         actions.add_widget(Button(text="Batal", on_release=lambda button: popup.dismiss()))
-        form.add_widget(actions)
         popup.open()
 
     def open_return_form(self, order):
@@ -1319,7 +1494,12 @@ class ChannelTransactionsScreen(Screen):
             self.ids.channel_message.text = "Semua barang pada transaksi ini sudah diretur."
             return
 
-        form = BoxLayout(orientation="vertical", padding=dp(12), spacing=dp(7))
+        form = BoxLayout(
+            orientation="vertical",
+            padding=dp(12),
+            spacing=dp(7),
+            size_hint_y=None,
+        )
         form.add_widget(Label(
             text=f"Nama pemesan: {order[1] or 'Pelanggan umum'}",
             size_hint_y=None,
@@ -1365,8 +1545,28 @@ class ChannelTransactionsScreen(Screen):
             ),
             size_hint_y=None,
             height=dp(62),
+            halign="left",
+            valign="middle",
         )
-        message = Label(text="", size_hint_y=None, height=dp(40))
+        explanation.bind(
+            width=lambda label, width: setattr(label, "text_size", (width, None)),
+            texture_size=lambda label, size: setattr(
+                label, "height", max(dp(62), size[1] + dp(8))
+            ),
+        )
+        message = Label(
+            text="",
+            size_hint_y=None,
+            height=dp(40),
+            halign="left",
+            valign="middle",
+        )
+        message.bind(
+            width=lambda label, width: setattr(label, "text_size", (width, None)),
+            texture_size=lambda label, size: setattr(
+                label, "height", max(dp(40), size[1] + dp(8))
+            ),
+        )
 
         def update_resolution(_spinner, value):
             is_replacement = value == "Kirim pengganti"
@@ -1384,8 +1584,17 @@ class ChannelTransactionsScreen(Screen):
             message,
         ):
             form.add_widget(widget)
-        popup = Popup(title="Proses Retur", content=form, size_hint=(0.92, 0.88))
-        actions = BoxLayout(size_hint_y=None, height=dp(44), spacing=dp(8))
+        actions = BoxLayout(
+            size_hint_y=None,
+            height=dp(44),
+            spacing=dp(8),
+            padding=(dp(12), 0),
+        )
+        popup = Popup(
+            title="Proses Retur",
+            content=scrollable_form_content(form, actions),
+            size_hint=(0.92, 0.88),
+        )
 
         def save_return(button):
             try:
@@ -1417,7 +1626,6 @@ class ChannelTransactionsScreen(Screen):
 
         actions.add_widget(Button(text="Simpan retur", on_release=save_return))
         actions.add_widget(Button(text="Batal", on_release=lambda button: popup.dismiss()))
-        form.add_widget(actions)
         popup.open()
 
     def load_return_history(self):
@@ -1646,7 +1854,13 @@ class ProfileScreen(Screen):
             self.ids.foto_profil.reload()
             self.ids.profile_message.text = "Foto profil berhasil dipilih"
 
-        open_image_picker(set_profile_photo)
+        try:
+            open_image_picker(
+                set_profile_photo,
+                lambda error: setattr(self.ids.profile_message, "text", error),
+            )
+        except Exception as error:
+            self.ids.profile_message.text = f"Tidak dapat membuka pemilih foto: {error}"
 
     def save_profile(self):
         nama = self.ids.nama_admin.text.strip()
@@ -1665,6 +1879,19 @@ class ProfileScreen(Screen):
             "store_name": "EarthGlow Soap",
             "profile_photo": "",
         }
+        try:
+            update_admin_profile(
+                user.get("id", 1),
+                nama,
+                email,
+                user.get("password", "admin123"),
+                toko,
+                self.ids.foto_profil.source or "",
+            )
+        except ValueError as error:
+            self.ids.profile_message.text = str(error)
+            return
+
         user.update({
             "name": nama,
             "email": email,
@@ -1672,14 +1899,6 @@ class ProfileScreen(Screen):
             "profile_photo": self.ids.foto_profil.source or "",
         })
         self.manager.current_user = user
-        update_admin_profile(
-            user.get("id", 1),
-            nama,
-            email,
-            user.get("password", "admin123"),
-            toko,
-            user.get("profile_photo", "")
-        )
         self.ids.profile_message.text = "Perubahan berhasil disimpan"
 
     def logout(self):
@@ -1697,7 +1916,9 @@ class NavigasiManager(ScreenManager):
 
 class EarthGlowApp(App):
     def build(self):
+        Window.clearcolor = (0.94, 0.98, 0.95, 1)
         if platform == "android":
+            Window.softinput_mode = "below_target"
             database_module.DATABASE_NAME = os.path.join(
                 self.user_data_dir,
                 "earthglow.db",

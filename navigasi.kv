@@ -124,6 +124,13 @@ NavigasiManager:
 <DashboardScreen>:
     name: "dashboard"
 
+    canvas.before:
+        Color:
+            rgba: 0.94, 0.98, 0.95, 1
+        Rectangle:
+            pos: self.pos
+            size: self.size
+
     ScrollView:
         do_scroll_x: False
         bar_width: dp(4)
@@ -469,11 +476,11 @@ NavigasiManager:
             text: "Ringkasan pembukuan..."
             font_size: "12sp"
             halign: "left"
-            valign: "middle"
-            text_size: self.size
+            valign: "top"
+            text_size: self.width, None
             color: 0.12, 0.25, 0.18, 1
             size_hint_y: None
-            height: dp(82)
+            height: max(dp(44), self.texture_size[1] + dp(8))
 
         Label:
             id: channel_message
@@ -481,10 +488,10 @@ NavigasiManager:
             font_size: "11sp"
             halign: "left"
             valign: "middle"
-            text_size: self.size
+            text_size: self.width, None
             color: 0.12, 0.45, 0.25, 1
             size_hint_y: None
-            height: dp(38)
+            height: 0 if not self.text else max(dp(30), self.texture_size[1] + dp(6))
 
         ScrollView:
             id: orders_scroll
@@ -611,11 +618,11 @@ NavigasiManager:
             text: "Memuat laporan..."
             halign: "left"
             valign: "top"
-            text_size: self.size
+            text_size: self.width, None
             font_size: "12sp"
             color: 0.15, 0.25, 0.20, 1
             size_hint_y: None
-            height: dp(116)
+            height: self.texture_size[1] + dp(10)
 
         ScrollView:
             id: report_scroll
@@ -677,13 +684,20 @@ NavigasiManager:
 <ProfileScreen>:
     name: "profile"
 
+    canvas.before:
+        Color:
+            rgba: 0.94, 0.98, 0.97, 1
+        Rectangle:
+            pos: self.pos
+            size: self.size
+
     ScrollView:
         do_scroll_x: False
 
         BoxLayout:
             orientation: "vertical"
-            padding: 30
-            spacing: 12
+            padding: dp(16)
+            spacing: dp(8)
             size_hint_y: None
             height: self.minimum_height
 
@@ -695,43 +709,43 @@ NavigasiManager:
                     size: self.size
 
             Label:
-                text: "Edit Profile"
-                font_size: "28sp"
+                text: "PROFIL TOKO"
+                font_size: "24sp"
                 bold: True
                 color: 0.10, 0.28, 0.20, 1
                 size_hint_y: None
-                height: 55
+                height: dp(48)
 
             Label:
                 text: "Kelola informasi akun kamu"
-                font_size: "14sp"
+                font_size: "13sp"
                 color: 0.35, 0.42, 0.38, 1
                 size_hint_y: None
-                height: 30
+                height: dp(26)
 
             Label:
                 text: "Akun aktif: " + (root.manager.current_user['name'] if root.manager.current_user else "EarthGlow Admin")
                 color: 0.12, 0.35, 0.25, 1
                 bold: True
-                font_size: "14sp"
+                font_size: "13sp"
                 size_hint_y: None
-                height: 28
+                height: dp(26)
 
             Widget:
                 size_hint_y: None
-                height: 5
+                height: dp(2)
 
             Image:
                 id: foto_profil
                 source: ""
                 size_hint: None, None
-                size: 125, 125
+                size: dp(112), dp(112)
                 pos_hint: {"center_x": 0.5}
 
             Button:
                 text: "Ubah Foto Profil"
                 size_hint: None, None
-                size: 150, 38
+                size: dp(160), dp(40)
                 pos_hint: {"center_x": 0.5}
                 background_normal: ""
                 background_color: 0.78, 0.89, 0.83, 1
@@ -741,7 +755,7 @@ NavigasiManager:
 
             Widget:
                 size_hint_y: None
-                height: 12
+                height: dp(4)
 
             Label:
                 text: "Nama Admin"
@@ -750,12 +764,12 @@ NavigasiManager:
                 halign: "left"
                 text_size: self.size
                 size_hint_y: None
-                height: 25
+                height: dp(22)
 
             BoxLayout:
-                spacing: 8
+                spacing: dp(6)
                 size_hint_y: None
-                height: 48
+                height: dp(46)
 
                 TextInput:
                     id: nama_admin
@@ -763,15 +777,7 @@ NavigasiManager:
                     multiline: False
                     background_color: 1, 1, 1, 1
                     foreground_color: 0.1, 0.1, 0.1, 1
-                    padding: 15, 12
-
-                Button:
-                    text: "Edit"
-                    size_hint_x: None
-                    width: 65
-                    background_normal: ""
-                    background_color: 0.82, 0.91, 0.95, 1
-                    color: 0.15, 0.30, 0.40, 1
+                    padding: dp(12), dp(10)
 
             Label:
                 text: "Email Admin"
@@ -780,12 +786,12 @@ NavigasiManager:
                 halign: "left"
                 text_size: self.size
                 size_hint_y: None
-                height: 25
+                height: dp(22)
 
             BoxLayout:
-                spacing: 8
+                spacing: dp(6)
                 size_hint_y: None
-                height: 48
+                height: dp(46)
 
                 TextInput:
                     id: email_admin
@@ -793,15 +799,7 @@ NavigasiManager:
                     multiline: False
                     background_color: 1, 1, 1, 1
                     foreground_color: 0.1, 0.1, 0.1, 1
-                    padding: 15, 12
-
-                Button:
-                    text: "Edit"
-                    size_hint_x: None
-                    width: 65
-                    background_normal: ""
-                    background_color: 0.82, 0.91, 0.95, 1
-                    color: 0.15, 0.30, 0.40, 1
+                    padding: dp(12), dp(10)
 
             Label:
                 text: "Nama Toko"
@@ -810,12 +808,12 @@ NavigasiManager:
                 halign: "left"
                 text_size: self.size
                 size_hint_y: None
-                height: 25
+                height: dp(22)
 
             BoxLayout:
-                spacing: 8
+                spacing: dp(6)
                 size_hint_y: None
-                height: 48
+                height: dp(46)
 
                 TextInput:
                     id: nama_toko
@@ -823,19 +821,11 @@ NavigasiManager:
                     multiline: False
                     background_color: 1, 1, 1, 1
                     foreground_color: 0.1, 0.1, 0.1, 1
-                    padding: 15, 12
-
-                Button:
-                    text: "Edit"
-                    size_hint_x: None
-                    width: 65
-                    background_normal: ""
-                    background_color: 0.82, 0.91, 0.95, 1
-                    color: 0.15, 0.30, 0.40, 1
+                    padding: dp(12), dp(10)
 
             Widget:
                 size_hint_y: None
-                height: 8
+                height: dp(4)
 
             Label:
                 id: profile_message
@@ -843,12 +833,12 @@ NavigasiManager:
                 color: 0.10, 0.45, 0.25, 1
                 font_size: "13sp"
                 size_hint_y: None
-                height: 30
+                height: dp(32)
 
             Button:
                 text: "Simpan Perubahan"
                 size_hint_y: None
-                height: 50
+                height: dp(46)
                 background_normal: ""
                 background_color: 0.25, 0.55, 0.40, 1
                 font_size: "15sp"
@@ -857,7 +847,7 @@ NavigasiManager:
             Button:
                 text: "Logout"
                 size_hint_y: None
-                height: 45
+                height: dp(44)
                 background_normal: ""
                 background_color: 0.38, 0.39, 0.40, 1
                 on_release: root.logout()
@@ -865,11 +855,11 @@ NavigasiManager:
             Button:
                 text: "Kembali"
                 size_hint_y: None
-                height: 45
+                height: dp(44)
                 background_normal: ""
                 background_color: 0.35, 0.35, 0.35, 1
                 on_release: root.manager.current = "dashboard"
 
             Widget:
                 size_hint_y: None
-                height: 20
+                height: dp(8)

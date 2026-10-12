@@ -617,16 +617,21 @@ def get_admin_by_email_and_password(email, password):
 def update_admin_profile(admin_id, name, email, password, store_name, profile_photo=""):
     conn = connect_db()
     cursor = conn.cursor()
-    cursor.execute(
-        """
-        UPDATE admins
-        SET name = ?, email = ?, password = ?, store_name = ?, profile_photo = ?
-        WHERE id = ?
-        """,
-        (name, email, password, store_name, profile_photo, admin_id)
-    )
-    conn.commit()
-    conn.close()
+    try:
+        cursor.execute(
+            """
+            UPDATE admins
+            SET name = ?, email = ?, password = ?, store_name = ?, profile_photo = ?
+            WHERE id = ?
+            """,
+            (name, email, password, store_name, profile_photo, admin_id)
+        )
+        conn.commit()
+    except sqlite3.IntegrityError as error:
+        conn.rollback()
+        raise ValueError("Email tersebut sudah digunakan akun admin lain.") from error
+    finally:
+        conn.close()
 
 
 def add_product(name, brand, price, description, stock, image="", cost_price=None):

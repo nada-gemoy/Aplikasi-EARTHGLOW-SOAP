@@ -98,7 +98,9 @@ branch `main`.
 Build pertama mengunduh Android SDK/NDK dan bisa memerlukan waktu cukup lama.
 Di Windows, jalankan Buildozer melalui Linux/WSL; workflow GitHub menggunakan
 runner Ubuntu. APK mendukung Android 7.0 (API 24) ke atas. Database disimpan
-pada penyimpanan privat aplikasi Android.
+pada penyimpanan privat aplikasi Android. Foto dipilih melalui pemilih dokumen
+sistem Android dan disalin ke penyimpanan privat aplikasi, tanpa meminta izin
+akses seluruh galeri.
 Laporan Excel Android juga disimpan di penyimpanan privat aplikasi, sedangkan
 cetak langsung belum didukung di Android.
 Versi python-for-android dikunci agar versi Python dan wheel Android tetap
