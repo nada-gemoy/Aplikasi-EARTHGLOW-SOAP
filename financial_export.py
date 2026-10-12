@@ -18,7 +18,7 @@ def _parse_datetime(value):
         return str(value)
 
 
-def export_financial_workbook(orders, output_path, returns=()):
+def export_financial_workbook(orders, output_path, returns=(), store_name="EarthGlow Soap"):
     workbook = Workbook()
     summary = workbook.active
     summary.title = "Ringkasan"
@@ -30,7 +30,7 @@ def export_financial_workbook(orders, output_path, returns=()):
     title_font = Font(size=16, bold=True, color="286344")
     currency_format = '"Rp" #,##0;[Red]-"Rp" #,##0'
 
-    summary["A1"] = "Laporan Keuangan EarthGlow Soap"
+    summary["A1"] = f"Laporan Keuangan {store_name}"
     summary["A1"].font = title_font
     summary_headers = [
         "Saluran",

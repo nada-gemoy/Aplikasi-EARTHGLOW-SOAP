@@ -35,6 +35,15 @@ earthglow_soap/
    python main.py
    ```
 
+## Akun Admin dan Data Toko
+
+Pada layar awal, pilih **BUAT AKUN TOKO BARU** untuk membuat admin dengan
+email, password, dan nama toko sendiri. Setiap akun memakai database produk,
+pesanan, retur, dan keuangan yang terpisah. Data akun bawaan
+`admin@earthglow.com` tetap tersimpan di database lama dan tidak tercampur
+dengan akun baru. Tombol **Logout** mengakhiri sesi dan mengembalikan aplikasi
+ke layar awal; akun berikutnya dapat masuk atau membuat akun toko baru.
+
 ## Laporan Keuangan dan Ekspor Excel
 
 Dashboard memisahkan **Transaksi Langsung** dari **Pesanan Online**. Keduanya
@@ -59,10 +68,13 @@ transaksi saat penjualan dicatat, sehingga perubahan HPP produk berikutnya
 tidak mengubah laba transaksi lama. Transaksi lama yang belum memiliki data HPP
 ditandai tanpa HPP; labanya tidak dihitung seolah-olah modalnya nol.
 
-Pada menu **Laporan Keuangan**, pilih **EKSPOR EXCEL**. Berkas `.xlsx`
-disimpan di folder `Downloads` dengan lembar Ringkasan, Transaksi, dan Retur.
-Rumus Excel menghitung omzet, HPP, laba, dan nilai retur terpisah untuk
-transaksi langsung serta pesanan online. Excel menghitung ulang saat berkas
+Pada menu **Laporan Keuangan**, pilih **EKSPOR EXCEL**. Di Android, pilih
+lokasi penyimpanan pada dialog sistem; setelah tersimpan, aplikasi menawarkan
+aplikasi yang dapat membuka berkas. Jika Excel tidak tersedia, Excel Web
+dibuka dan berkas `.xlsx` dapat diunggah dari lokasi penyimpanan tadi. Di
+desktop, berkas disimpan di folder `Downloads`. Workbook memiliki lembar
+Ringkasan, Transaksi, dan Retur dengan rumus Excel untuk menghitung omzet,
+HPP, laba, serta nilai retur per saluran. Excel menghitung ulang saat berkas
 dibuka. Laba yang ditampilkan adalah laba kotor (omzet dikurangi HPP), belum
 dikurangi biaya operasional lain.
 
@@ -101,8 +113,8 @@ runner Ubuntu. APK mendukung Android 7.0 (API 24) ke atas. Database disimpan
 pada penyimpanan privat aplikasi Android. Foto dipilih melalui pemilih dokumen
 sistem Android dan disalin ke penyimpanan privat aplikasi, tanpa meminta izin
 akses seluruh galeri.
-Laporan Excel Android juga disimpan di penyimpanan privat aplikasi, sedangkan
-cetak langsung belum didukung di Android.
+Ekspor Excel Android memakai pemilih dokumen sistem agar berkas bisa disimpan
+di lokasi yang dapat diakses pengguna; cetak langsung belum didukung di Android.
 Versi python-for-android dikunci agar versi Python dan wheel Android tetap
 kompatibel. Untuk membuat APK tanpa menyiapkan toolchain di Codespaces, buka
 tab **Actions**, jalankan workflow **Build Android APK**, lalu unduh artifact

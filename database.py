@@ -1,13 +1,43 @@
+import os
 import sqlite3
 
 DATABASE_NAME = "earthglow.db"
+AUTH_DATABASE_NAME = DATABASE_NAME
+ACCOUNT_DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(DATABASE_NAME)), "accounts")
 
 
 def connect_db():
     return sqlite3.connect(DATABASE_NAME)
 
 
-def create_tables():
+def connect_auth_db():
+    return sqlite3.connect(AUTH_DATABASE_NAME)
+
+
+def configure_database(database_path):
+    global DATABASE_NAME, AUTH_DATABASE_NAME, ACCOUNT_DATA_DIR
+    AUTH_DATABASE_NAME = os.path.abspath(database_path)
+    DATABASE_NAME = AUTH_DATABASE_NAME
+    ACCOUNT_DATA_DIR = os.path.join(os.path.dirname(AUTH_DATABASE_NAME), "accounts")
+
+
+def activate_admin_database(admin_id):
+    global DATABASE_NAME
+    if int(admin_id) == 1:
+        DATABASE_NAME = AUTH_DATABASE_NAME
+        return
+
+    os.makedirs(ACCOUNT_DATA_DIR, exist_ok=True)
+    DATABASE_NAME = os.path.join(ACCOUNT_DATA_DIR, f"admin_{int(admin_id)}.db")
+    create_tables(create_default_admin=False)
+
+
+def reset_active_database():
+    global DATABASE_NAME
+    DATABASE_NAME = AUTH_DATABASE_NAME
+
+
+def create_tables(create_default_admin=True):
     conn = connect_db()
     cursor = conn.cursor()
 
@@ -91,18 +121,19 @@ def create_tables():
         )
     """)
 
-    cursor.execute(
-        "SELECT id FROM admins WHERE email = ?",
-        ("admin@earthglow.com",)
-    )
-    if cursor.fetchone() is None:
+    if create_default_admin:
         cursor.execute(
-            """
-            INSERT INTO admins (name, email, password, store_name, profile_photo)
-            VALUES (?, ?, ?, ?, ?)
-            """,
-            ("EarthGlow Admin", "admin@earthglow.com", "admin123", "EarthGlow Soap", "")
+            "SELECT id FROM admins WHERE email = ?",
+            ("admin@earthglow.com",)
         )
+        if cursor.fetchone() is None:
+            cursor.execute(
+                """
+                INSERT INTO admins (name, email, password, store_name, profile_photo)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                ("EarthGlow Admin", "admin@earthglow.com", "admin123", "EarthGlow Soap", "")
+            )
 
     cursor.execute("PRAGMA table_info(orders)")
     order_columns = {row[1] for row in cursor.fetchall()}
@@ -589,7 +620,7 @@ def get_financial_summary():
 
 
 def get_admin_by_email_and_password(email, password):
-    conn = connect_db()
+    conn = connect_auth_db()
     cursor = conn.cursor()
     cursor.execute(
         """
@@ -614,10 +645,55 @@ def get_admin_by_email_and_password(email, password):
     }
 
 
-def update_admin_profile(admin_id, name, email, password, store_name, profile_photo=""):
-    conn = connect_db()
+def create_admin_account(name, email, password, store_name):
+    conn = connect_auth_db()
     cursor = conn.cursor()
     try:
+        cursor.execute("BEGIN IMMEDIATE")
+        cursor.execute(
+            "SELECT id FROM admins WHERE LOWER(email) = LOWER(?)",
+            (email.strip(),),
+        )
+        if cursor.fetchone() is not None:
+            raise ValueError("Email tersebut sudah digunakan akun admin lain.")
+        cursor.execute(
+            """
+            INSERT INTO admins (name, email, password, store_name, profile_photo)
+            VALUES (?, ?, ?, ?, '')
+            """,
+            (name.strip(), email.strip(), password, store_name.strip()),
+        )
+        admin_id = cursor.lastrowid
+        conn.commit()
+    except sqlite3.IntegrityError as error:
+        conn.rollback()
+        raise ValueError("Email tersebut sudah digunakan akun admin lain.") from error
+    except ValueError:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+    return {
+        "id": admin_id,
+        "name": name.strip(),
+        "email": email.strip(),
+        "password": password,
+        "store_name": store_name.strip(),
+        "profile_photo": "",
+    }
+
+
+def update_admin_profile(admin_id, name, email, password, store_name, profile_photo=""):
+    conn = connect_auth_db()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "SELECT id FROM admins WHERE LOWER(email) = LOWER(?) AND id != ?",
+            (email.strip(), admin_id),
+        )
+        if cursor.fetchone() is not None:
+            raise ValueError("Email tersebut sudah digunakan akun admin lain.")
         cursor.execute(
             """
             UPDATE admins
@@ -630,6 +706,9 @@ def update_admin_profile(admin_id, name, email, password, store_name, profile_ph
     except sqlite3.IntegrityError as error:
         conn.rollback()
         raise ValueError("Email tersebut sudah digunakan akun admin lain.") from error
+    except ValueError:
+        conn.rollback()
+        raise
     finally:
         conn.close()
 

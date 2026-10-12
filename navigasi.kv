@@ -1,6 +1,7 @@
 NavigasiManager:
     WelcomeScreen:
     LoginScreen:
+    RegisterScreen:
     DashboardScreen:
     ProductsScreen:
     DirectTransactionsScreen:
@@ -56,6 +57,16 @@ NavigasiManager:
             background_color: 0.18, 0.52, 0.38, 1
             border: (0,0,0,0)
             on_release: root.manager.current = "login"
+
+        Button:
+            text: "BUAT AKUN TOKO BARU"
+            size_hint_y: None
+            height: 58
+            background_normal: ""
+            background_color: 0.78, 0.89, 0.83, 1
+            color: 0.10, 0.30, 0.20, 1
+            border: (0,0,0,0)
+            on_release: root.manager.current = "register"
 
         Widget:
 
@@ -119,6 +130,96 @@ NavigasiManager:
             on_release: root.manager.current = "welcome"
 
         Widget:
+
+
+<RegisterScreen>:
+    name: "register"
+
+    BoxLayout:
+        orientation: "vertical"
+        padding: dp(20)
+        spacing: dp(10)
+
+        canvas.before:
+            Color:
+                rgba: 0.95, 0.98, 0.96, 1
+            Rectangle:
+                pos: self.pos
+                size: self.size
+
+        Label:
+            text: "BUAT AKUN TOKO"
+            font_size: "24sp"
+            bold: True
+            color: 0.12, 0.35, 0.25, 1
+            size_hint_y: None
+            height: dp(48)
+
+        ScrollView:
+            do_scroll_x: False
+
+            BoxLayout:
+                orientation: "vertical"
+                spacing: dp(10)
+                size_hint_y: None
+                height: self.minimum_height
+
+                TextInput:
+                    id: nama_input
+                    hint_text: "Nama admin"
+                    multiline: False
+                    size_hint_y: None
+                    height: dp(48)
+
+                TextInput:
+                    id: toko_input
+                    hint_text: "Nama toko baru"
+                    multiline: False
+                    size_hint_y: None
+                    height: dp(48)
+
+                TextInput:
+                    id: email_input
+                    hint_text: "Email akun baru"
+                    multiline: False
+                    size_hint_y: None
+                    height: dp(48)
+
+                TextInput:
+                    id: password_input
+                    hint_text: "Password baru"
+                    password: True
+                    multiline: False
+                    size_hint_y: None
+                    height: dp(48)
+
+                TextInput:
+                    id: konfirmasi_input
+                    hint_text: "Ulangi password"
+                    password: True
+                    multiline: False
+                    size_hint_y: None
+                    height: dp(48)
+
+                Label:
+                    text: root.pesan
+                    color: 0.8, 0.1, 0.1, 1
+                    size_hint_y: None
+                    height: dp(42)
+
+                Button:
+                    text: "BUAT AKUN"
+                    size_hint_y: None
+                    height: dp(54)
+                    background_normal: ""
+                    background_color: 0.18, 0.52, 0.38, 1
+                    on_release: root.register()
+
+        Button:
+            text: "Kembali"
+            size_hint_y: None
+            height: dp(46)
+            on_release: root.manager.current = "welcome"
 
 
 <DashboardScreen>:
@@ -724,7 +825,7 @@ NavigasiManager:
                 height: dp(26)
 
             Label:
-                text: "Akun aktif: " + (root.manager.current_user['name'] if root.manager.current_user else "EarthGlow Admin")
+                text: "Akun aktif: " + (root.manager.current_user['name'] if root.manager.current_user else "Tidak ada sesi login")
                 color: 0.12, 0.35, 0.25, 1
                 bold: True
                 font_size: "13sp"

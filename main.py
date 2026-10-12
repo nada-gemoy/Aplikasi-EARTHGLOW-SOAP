@@ -51,12 +51,22 @@ class ProductPhoto(ButtonBehavior, Image):
 
 
 _IMAGE_PICKER_REQUEST_CODE = 7823
+_EXCEL_EXPORT_REQUEST_CODE = 7824
+_EXCEL_MIME_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 _pending_image_selection = None
+_pending_excel_export = None
 _image_picker_bound = False
 
 
-def _handle_image_picker_result(request_code, result_code, intent):
-    global _pending_image_selection
+def _handle_android_activity_result(request_code, result_code, intent):
+    global _pending_image_selection, _pending_excel_export
+    if request_code == _EXCEL_EXPORT_REQUEST_CODE:
+        callback = _pending_excel_export
+        _pending_excel_export = None
+        if callback is not None:
+            uri = intent.getData() if result_code == -1 and intent is not None else None
+            Clock.schedule_once(lambda dt: callback(uri))
+        return
     if request_code != _IMAGE_PICKER_REQUEST_CODE:
         return
 
@@ -75,6 +85,82 @@ def _handle_image_picker_result(request_code, result_code, intent):
         return
 
     Clock.schedule_once(lambda dt: callback(image_path, ""))
+
+
+def _request_android_excel_destination(filename, callback):
+    global _pending_excel_export, _image_picker_bound
+    from android import activity
+    from jnius import autoclass
+
+    if not _image_picker_bound:
+        activity.bind(on_activity_result=_handle_android_activity_result)
+        _image_picker_bound = True
+    if _pending_excel_export is not None:
+        raise RuntimeError("Ekspor Excel sedang berlangsung.")
+
+    intent_class = autoclass("android.content.Intent")
+    intent = intent_class(intent_class.ACTION_CREATE_DOCUMENT)
+    intent.addCategory(intent_class.CATEGORY_OPENABLE)
+    intent.setType(_EXCEL_MIME_TYPE)
+    intent.putExtra(intent_class.EXTRA_TITLE, filename)
+    _pending_excel_export = callback
+    try:
+        autoclass("org.kivy.android.PythonActivity").mActivity.startActivityForResult(
+            intent,
+            _EXCEL_EXPORT_REQUEST_CODE,
+        )
+    except Exception:
+        _pending_excel_export = None
+        raise
+
+
+def _copy_export_to_android_uri(source_path, destination_uri):
+    from jnius import autoclass
+
+    activity = autoclass("org.kivy.android.PythonActivity").mActivity
+    output_stream = activity.getContentResolver().openOutputStream(destination_uri)
+    if output_stream is None:
+        raise OSError("Lokasi penyimpanan tidak dapat dibuka.")
+    try:
+        with open(source_path, "rb") as source_file:
+            while True:
+                data = source_file.read(64 * 1024)
+                if not data:
+                    break
+                output_stream.write(data)
+        output_stream.flush()
+    finally:
+        output_stream.close()
+
+
+def _open_excel_or_web(destination_uri, filename):
+    from jnius import autoclass
+
+    activity = autoclass("org.kivy.android.PythonActivity").mActivity
+    intent_class = autoclass("android.content.Intent")
+    excel_intent = intent_class(intent_class.ACTION_VIEW)
+    excel_intent.setDataAndType(destination_uri, _EXCEL_MIME_TYPE)
+    excel_intent.addFlags(intent_class.FLAG_GRANT_READ_URI_PERMISSION)
+
+    if excel_intent.resolveActivity(activity.getPackageManager()) is not None:
+        activity.startActivity(intent_class.createChooser(excel_intent, "Buka file Excel"))
+        return "Excel tersimpan. Pilih aplikasi untuk membuka file."
+
+    web_intent = intent_class(intent_class.ACTION_VIEW)
+    web_intent.setData(
+        autoclass("android.net.Uri").parse("https://www.office.com/launch/excel")
+    )
+    try:
+        activity.startActivity(web_intent)
+    except Exception as error:
+        return (
+            f"Excel tersimpan sebagai {filename}, tetapi Excel Web tidak dapat dibuka: "
+            f"{error}"
+        )
+    return (
+        f"Excel tersimpan sebagai {filename}. Upload file itu ke Excel Web "
+        "yang baru dibuka."
+    )
 
 
 def _copy_android_image(uri):
@@ -171,7 +257,7 @@ def open_image_picker(on_select, on_error=None):
                 on_select(image_path)
 
         if not _image_picker_bound:
-            activity.bind(on_activity_result=_handle_image_picker_result)
+            activity.bind(on_activity_result=_handle_android_activity_result)
             _image_picker_bound = True
         if _pending_image_selection is not None:
             raise RuntimeError("Pemilih foto sedang digunakan.")
@@ -233,6 +319,11 @@ class WelcomeScreen(Screen):
 class LoginScreen(Screen):
     pesan = StringProperty("")
 
+    def clear_form(self):
+        self.ids.email_input.text = ""
+        self.ids.password_input.text = ""
+        self.pesan = ""
+
     def login(self):
         email = self.ids.email_input.text.strip()
         password = self.ids.password_input.text.strip()
@@ -244,6 +335,52 @@ class LoginScreen(Screen):
         user = get_admin_by_email_and_password(email, password)
         if user is None:
             self.pesan = "Email atau password salah"
+            return
+
+        self.pesan = ""
+        database_module.activate_admin_database(user["id"])
+        self.manager.current_user = user
+        self.manager.current = "dashboard"
+
+
+class RegisterScreen(Screen):
+    pesan = StringProperty("")
+
+    def clear_form(self):
+        for field_id in (
+            "nama_input",
+            "toko_input",
+            "email_input",
+            "password_input",
+            "konfirmasi_input",
+        ):
+            self.ids[field_id].text = ""
+        self.pesan = ""
+
+    def register(self):
+        name = self.ids.nama_input.text.strip()
+        store_name = self.ids.toko_input.text.strip()
+        email = self.ids.email_input.text.strip()
+        password = self.ids.password_input.text.strip()
+        confirmation = self.ids.konfirmasi_input.text.strip()
+
+        if not all((name, store_name, email, password, confirmation)):
+            self.pesan = "Semua data wajib diisi"
+            return
+        if password != confirmation:
+            self.pesan = "Konfirmasi password tidak sama"
+            return
+
+        try:
+            user = database_module.create_admin_account(
+                name,
+                email,
+                password,
+                store_name,
+            )
+            database_module.activate_admin_database(user["id"])
+        except ValueError as error:
+            self.pesan = str(error)
             return
 
         self.pesan = ""
@@ -1773,6 +1910,9 @@ class FinancialReportScreen(Screen):
         count, revenue, today, profit, orders_without_cost = get_financial_summary()
         direct = get_channel_financial_summary("direct")
         online = get_channel_financial_summary("online")
+        store_name = html.escape(
+            (self.manager.current_user or {}).get("store_name") or "Toko"
+        )
         rows = "".join(
             f"<tr><td>{html.escape(str(order[7] or '-'))}</td>"
             f"<td>{html.escape('Transaksi langsung' if order[10] == 'direct' else 'Pesanan online')}</td>"
@@ -1786,10 +1926,10 @@ class FinancialReportScreen(Screen):
             for order in get_orders() if order[6] == "Lunas"
         )
         report_html = f"""<!doctype html><html><head><meta charset="utf-8">
-<title>Laporan Keuangan EarthGlow Soap</title><style>
+<title>Laporan Keuangan {store_name}</title><style>
 body{{font-family:Arial,sans-serif;margin:32px;color:#20382c}}h1{{color:#286344}}
 table{{border-collapse:collapse;width:100%;margin-top:20px}}th,td{{border:1px solid #aaa;padding:8px;text-align:left}}
-</style></head><body><h1>Laporan Keuangan EarthGlow Soap</h1>
+</style></head><body><h1>Laporan Keuangan {store_name}</h1>
 <p>Transaksi langsung: omzet Rp{direct[1]:,}, laba kotor Rp{direct[2]:,}, retur Rp{direct[5]:,}<br>
 Pesanan online: omzet Rp{online[1]:,}, laba kotor Rp{online[2]:,}, retur Rp{online[5]:,}<br>
 Transaksi lunas: {count}<br>Pendapatan hari ini: Rp{today:,}<br>Total pendapatan: Rp{revenue:,}<br>
@@ -1807,25 +1947,60 @@ Laba kotor (omzet - HPP): Rp{profit:,}<br>Transaksi lunas tanpa HPP: {orders_wit
             self.ids.report_message.text = "Laporan dibuka di browser untuk dicetak"
 
     def export_excel(self):
-        if platform == "android":
-            downloads_dir = self.user_data_dir
-        else:
-            downloads_dir = os.path.join(os.path.expanduser("~"), "Downloads")
+        is_android = platform == "android"
+        downloads_dir = (
+            self.user_data_dir
+            if is_android
+            else os.path.join(os.path.expanduser("~"), "Downloads")
+        )
         try:
             os.makedirs(downloads_dir, exist_ok=True)
             filename = f"laporan_keuangan_earthglow_{datetime.now():%Y%m%d_%H%M%S}.xlsx"
             output_path = os.path.join(downloads_dir, filename)
-            export_financial_workbook(get_orders(), output_path, get_returns())
+            user = self.manager.current_user or {}
+            export_financial_workbook(
+                get_orders(),
+                output_path,
+                get_returns(),
+                user.get("store_name") or "Toko",
+            )
         except OSError as error:
             self.ids.report_message.text = f"Gagal menyimpan Excel: {error}"
             return
 
-        if platform == "android":
-            self.ids.report_message.text = (
-                f"Excel tersimpan di penyimpanan aplikasi: {filename}"
-            )
-        else:
-            self.ids.report_message.text = f"Excel tersimpan di Downloads: {filename}"
+        if is_android:
+            def finish_export(destination_uri):
+                try:
+                    if destination_uri is None:
+                        self.ids.report_message.text = "Ekspor Excel dibatalkan"
+                        return
+                    _copy_export_to_android_uri(output_path, destination_uri)
+                except Exception as error:
+                    self.ids.report_message.text = f"Gagal mengekspor Excel: {error}"
+                else:
+                    try:
+                        self.ids.report_message.text = _open_excel_or_web(
+                            destination_uri,
+                            filename,
+                        )
+                    except Exception as error:
+                        self.ids.report_message.text = (
+                            f"Excel tersimpan sebagai {filename}, tetapi gagal dibuka: "
+                            f"{error}"
+                        )
+                finally:
+                    if os.path.exists(output_path):
+                        os.remove(output_path)
+
+            try:
+                _request_android_excel_destination(filename, finish_export)
+            except Exception as error:
+                if os.path.exists(output_path):
+                    os.remove(output_path)
+                self.ids.report_message.text = f"Gagal membuka penyimpanan Excel: {error}"
+            return
+
+        self.ids.report_message.text = f"Excel tersimpan di Downloads: {filename}"
 
 
 class ProfileScreen(Screen):
@@ -1833,17 +2008,13 @@ class ProfileScreen(Screen):
         self.refresh_profile()
 
     def refresh_profile(self):
-        user = getattr(self.manager, "current_user", None) or {
-            "id": 1,
-            "name": "EarthGlow Admin",
-            "email": "admin@earthglow.com",
-            "password": "admin123",
-            "store_name": "EarthGlow Soap",
-            "profile_photo": "",
-        }
-        self.ids.nama_admin.text = user.get("name", "EarthGlow Admin")
-        self.ids.email_admin.text = user.get("email", "admin@earthglow.com")
-        self.ids.nama_toko.text = user.get("store_name", "EarthGlow Soap")
+        user = getattr(self.manager, "current_user", None)
+        if user is None:
+            self.manager.current = "welcome"
+            return
+        self.ids.nama_admin.text = user.get("name") or ""
+        self.ids.email_admin.text = user.get("email") or ""
+        self.ids.nama_toko.text = user.get("store_name") or ""
         self.ids.foto_profil.source = user.get("profile_photo", "")
         if self.ids.foto_profil.source:
             self.ids.foto_profil.reload()
@@ -1863,6 +2034,11 @@ class ProfileScreen(Screen):
             self.ids.profile_message.text = f"Tidak dapat membuka pemilih foto: {error}"
 
     def save_profile(self):
+        user = getattr(self.manager, "current_user", None)
+        if user is None:
+            self.manager.current = "welcome"
+            return
+
         nama = self.ids.nama_admin.text.strip()
         email = self.ids.email_admin.text.strip()
         toko = self.ids.nama_toko.text.strip()
@@ -1871,20 +2047,12 @@ class ProfileScreen(Screen):
             self.ids.profile_message.text = "Semua data wajib diisi"
             return
 
-        user = getattr(self.manager, "current_user", None) or {
-            "id": 1,
-            "name": "EarthGlow Admin",
-            "email": "admin@earthglow.com",
-            "password": "admin123",
-            "store_name": "EarthGlow Soap",
-            "profile_photo": "",
-        }
         try:
             update_admin_profile(
-                user.get("id", 1),
+                user["id"],
                 nama,
                 email,
-                user.get("password", "admin123"),
+                user["password"],
                 toko,
                 self.ids.foto_profil.source or "",
             )
@@ -1904,6 +2072,9 @@ class ProfileScreen(Screen):
     def logout(self):
         self.manager.cart_items.clear()
         self.manager.current_user = None
+        database_module.reset_active_database()
+        self.manager.get_screen("login").clear_form()
+        self.manager.get_screen("register").clear_form()
         self.manager.current = "welcome"
 
 
@@ -1919,9 +2090,12 @@ class EarthGlowApp(App):
         Window.clearcolor = (0.94, 0.98, 0.95, 1)
         if platform == "android":
             Window.softinput_mode = "below_target"
-            database_module.DATABASE_NAME = os.path.join(
-                self.user_data_dir,
-                "earthglow.db",
+            database_module.configure_database(
+                os.path.join(self.user_data_dir, "earthglow.db")
+            )
+        else:
+            database_module.configure_database(
+                os.path.abspath(database_module.DATABASE_NAME)
             )
         create_tables()
         if platform == "android":
