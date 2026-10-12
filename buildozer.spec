@@ -16,6 +16,8 @@ android.ndk = 25b
 android.archs = arm64-v8a
 android.permissions = READ_EXTERNAL_STORAGE,READ_MEDIA_IMAGES
 android.accept_sdk_license = True
+p4a.branch = master
+p4a.commit = 957a3e5f8c270f7aa648ba185e5a68c1077a798d
 
 [buildozer]
 log_level = 2

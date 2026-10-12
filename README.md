@@ -101,6 +101,10 @@ runner Ubuntu. APK mendukung Android 7.0 (API 24) ke atas. Database disimpan
 pada penyimpanan privat aplikasi Android.
 Laporan Excel Android juga disimpan di penyimpanan privat aplikasi, sedangkan
 cetak langsung belum didukung di Android.
+Versi python-for-android dikunci agar versi Python dan wheel Android tetap
+kompatibel. Untuk membuat APK tanpa menyiapkan toolchain di Codespaces, buka
+tab **Actions**, jalankan workflow **Build Android APK**, lalu unduh artifact
+`earthglow-soap-android-debug` setelah job berhasil.
 
 ## Cara Mengembangkan Lebih Lanjut
 
