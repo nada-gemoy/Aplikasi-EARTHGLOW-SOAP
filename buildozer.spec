@@ -1,6 +1,6 @@
 [app]
 
-title = EarthGlow Soap Admin
+title = EarthGlow
 package.name = earthglowsoap
 package.domain = org.nadagemoy
 source.dir = .

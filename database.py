@@ -132,7 +132,7 @@ def create_tables(create_default_admin=True):
                 INSERT INTO admins (name, email, password, store_name, profile_photo)
                 VALUES (?, ?, ?, ?, ?)
                 """,
-                ("EarthGlow Admin", "admin@earthglow.com", "admin123", "EarthGlow Soap", "")
+                ("EarthGlow Admin", "admin@earthglow.com", "admin123", "EarthGlow", "")
             )
 
     cursor.execute("PRAGMA table_info(orders)")

@@ -845,7 +845,7 @@ class CashierScreen(Screen):
 
         sale_items = []
         receipt_lines = [
-            "EARTHGLOW SOAP",
+            "EARTHGLOW",
             "PEMBAYARAN TELAH BERHASIL",
             "NOTA PEMBAYARAN",
             datetime.now().strftime("Tanggal: %d-%m-%Y %H:%M"),
@@ -1385,7 +1385,7 @@ class ChannelTransactionsScreen(Screen):
             for item in items
         ] or [f"{product or '-'} x{quantity or 0}"]
         label_text = "\n".join([
-            "EARTHGLOW SOAP",
+            "EARTHGLOW",
             "STRUK / LABEL PESANAN ONLINE",
             f"No. pesanan: {order_id}",
             f"Platform: {platform_name or 'Web / Manual'}",
@@ -2104,7 +2104,7 @@ class EarthGlowApp(App):
             Window.size = (420, 840)
             Window.minimum_width = 360
             Window.minimum_height = 640
-        self.title = "EarthGlow Soap Admin"
+        self.title = "EarthGlow"
         kv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "navigasi.kv")
         return Builder.load_file(kv_path)
 

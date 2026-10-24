@@ -1,4 +1,4 @@
-# EarthGlow Soap - Aplikasi Toko Sabun
+# EarthGlow - Aplikasi Toko Sabun
 
 Projek Tahap 1: **Navigasi & Event Handling**
 Dibuat dengan **Python + Kivy**, berdasarkan rancangan UI/UX di Figma.
@@ -132,7 +132,7 @@ tab **Actions**, jalankan workflow **Build Android APK**, lalu unduh artifact
 # 1. Inisialisasi repository baru (khusus projek ini, jangan gabung dgn repo latihan)
 git init
 git add .
-git commit -m "Initial commit: navigasi dasar EarthGlow Soap"
+git commit -m "Initial commit: navigasi dasar EarthGlow"
 
 # 2. Hubungkan ke repository GitHub baru
 git remote add origin https://github.com/username/earthglow-soap.git

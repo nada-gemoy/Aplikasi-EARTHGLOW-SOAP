@@ -18,7 +18,7 @@ def _parse_datetime(value):
         return str(value)
 
 
-def export_financial_workbook(orders, output_path, returns=(), store_name="EarthGlow Soap"):
+def export_financial_workbook(orders, output_path, returns=(), store_name="EarthGlow"):
     workbook = Workbook()
     summary = workbook.active
     summary.title = "Ringkasan"
