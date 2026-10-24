@@ -5,6 +5,7 @@ package.name = earthglowsoap
 package.domain = org.nadagemoy
 source.dir = .
 source.include_exts = py,kv,png,jpg,jpeg,webp
+icon.filename = assets/earthglow-app-icon.png
 version = 1.0.0
 requirements = python3,kivy,openpyxl,et_xmlfile
 orientation = portrait
